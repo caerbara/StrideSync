@@ -142,10 +142,8 @@ composer install --no-dev --optimize-autoloader && npm ci && npm run build && ph
 heroku-php-apache2 public/
 ```
 
-### Post-Deploy Command (Run Command - Jobs):
-```bash
-php artisan migrate --force
-```
+### Migrations (handled automatically)
+The `.do/app.yaml` includes a **PRE_DEPLOY Job** that runs migrations automatically before each deployment. No manual setup needed!
 
 ---
 
