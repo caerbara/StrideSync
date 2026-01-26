@@ -1,117 +1,112 @@
-spec:
-  name: stridesync
-  region: sgp
-  
-  databases:
-    - name: stridesync-db
-      engine: MYSQL
-      version: "8"
-      size: db-s-1vcpu-1gb
-      num_nodes: 1
+name: stridesync
+region: sgp
 
-  services:
-    - name: web
-      github:
-        repo: caerbara/stridesync
-        branch: main
-        deploy_on_push: true
-      build_command: |
-        composer install --no-dev --optimize-autoloader
-        npm ci
-        npm run build
-        php artisan config:cache
-        php artisan route:cache
-        php artisan view:cache
-      run_command: heroku-php-apache2 public/
-      envs:
-        - key: APP_NAME
-          value: StrideSync
-        - key: APP_ENV
-          value: production
-        - key: APP_DEBUG
-          value: "false"
-        - key: APP_KEY
-          value: ${APP_KEY}
-          type: SECRET
-        - key: APP_URL
-          value: ${APP_URL}
-        - key: LOG_CHANNEL
-          value: stderr
-        - key: LOG_LEVEL
-          value: error
-        - key: DB_CONNECTION
-          value: mysql
-        - key: DATABASE_URL
-          scope: RUN_TIME
-          value: ${stridesync-db.DATABASE_URL}
-        - key: SESSION_DRIVER
-          value: database
-        - key: QUEUE_CONNECTION
-          value: database
-        - key: CACHE_STORE
-          value: database
-        - key: TELEGRAM_BOT_TOKEN
-          value: ${TELEGRAM_BOT_TOKEN}
-          type: SECRET
-        - key: CLOUDINARY_CLOUD_NAME
-          value: ${CLOUDINARY_CLOUD_NAME}
-          type: SECRET
-        - key: CLOUDINARY_API_KEY
-          value: ${CLOUDINARY_API_KEY}
-          type: SECRET
-        - key: CLOUDINARY_API_SECRET
-          value: ${CLOUDINARY_API_SECRET}
-          type: SECRET
-      http_port: 8080
-      instance_count: 1
-      instance_size_slug: basic-xxs
-      source_dir: /
+# Note: Database is configured externally via Managed MySQL Database
+# Set DATABASE_URL in App Platform environment variables
 
-  workers:
-    - name: queue-worker
-      github:
-        repo: caerbara/stridesync
-        branch: main
-        deploy_on_push: true
-      build_command: composer install --no-dev --optimize-autoloader
-      run_command: php artisan queue:work --tries=3 --timeout=90 --sleep=3
-      envs:
-        - key: APP_NAME
-          value: StrideSync
-        - key: APP_ENV
-          value: production
-        - key: APP_DEBUG
-          value: "false"
-        - key: APP_KEY
-          value: ${APP_KEY}
-          type: SECRET
-        - key: DATABASE_URL
-          scope: RUN_TIME
-          value: ${stridesync-db.DATABASE_URL}
-        - key: QUEUE_CONNECTION
-          value: database
-      instance_count: 1
-      instance_size_slug: basic-xxs
-      source_dir: /
+services:
+  - name: web
+    github:
+      repo: caerbara/stridesync
+      branch: main
+      deploy_on_push: true
+    build_command: |
+      composer install --no-dev --optimize-autoloader
+      npm ci
+      npm run build
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+    run_command: heroku-php-apache2 public/
+    envs:
+      - key: APP_NAME
+        value: StrideSync
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        value: ${APP_KEY}
+        type: SECRET
+      - key: APP_URL
+        value: ${APP_URL}
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+        type: SECRET
+      - key: SESSION_DRIVER
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: TELEGRAM_BOT_TOKEN
+        value: ${TELEGRAM_BOT_TOKEN}
+        type: SECRET
+      - key: CLOUDINARY_CLOUD_NAME
+        value: ${CLOUDINARY_CLOUD_NAME}
+        type: SECRET
+      - key: CLOUDINARY_API_KEY
+        value: ${CLOUDINARY_API_KEY}
+        type: SECRET
+      - key: CLOUDINARY_API_SECRET
+        value: ${CLOUDINARY_API_SECRET}
+        type: SECRET
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: /
 
-  jobs:
-    - name: migrate
-      kind: PRE_DEPLOY
-      github:
-        repo: caerbara/stridesync
-        branch: main
-      build_command: composer install --no-dev --optimize-autoloader
-      run_command: php artisan migrate --force && php artisan storage:link
-      envs:
-        - key: APP_NAME
-          value: StrideSync
-        - key: APP_ENV
-          value: production
-        - key: APP_KEY
-          value: ${APP_KEY}
-          type: SECRET
-        - key: DATABASE_URL
-          scope: RUN_TIME
-          value: ${stridesync-db.DATABASE_URL}
-      instance_size_slug: basic-xxs
-      source_dir: /
+workers:
+  - name: queue-worker
+    github:
+      repo: caerbara/stridesync
+      branch: main
+      deploy_on_push: true
+    build_command: composer install --no-dev --optimize-autoloader
+    run_command: php artisan queue:work --tries=3 --timeout=90 --sleep=3
+    envs:
+      - key: APP_NAME
+        value: StrideSync
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        value: ${APP_KEY}
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+        type: SECRET
+      - key: QUEUE_CONNECTION
+        value: database
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: /
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: caerbara/stridesync
+      branch: main
+    build_command: composer install --no-dev --optimize-autoloader
+    run_command: php artisan migrate --force && php artisan storage:link
+    envs:
+      - key: APP_NAME
+        value: StrideSync
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        value: ${APP_KEY}
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+        type: SECRET
+    instance_size_slug: basic-xxs
+    source_dir: /
