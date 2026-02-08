@@ -32,7 +32,8 @@ use App\Http\Controllers\TelegramWebhookController;
 Route::get('/', function () {
     $reviews = Cache::remember('welcome.reviews', now()->addMinutes(5), function () {
         return SessionReview::with(['user', 'session'])
-            ->latest()
+            ->where('is_featured', true)
+            ->orderByDesc('featured_at')
             ->take(5)
             ->get();
     });

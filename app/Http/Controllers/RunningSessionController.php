@@ -168,9 +168,9 @@ class RunningSessionController extends Controller
                 }
             }
 
-            $activity = (string) ($session->activity ?? '');
-            if (preg_match('/(\d+(?:\.\d+)?)\s*km/i', $activity, $m)) {
-                $totalDistanceKm += (float) $m[1];
+            $estimatedKm = RunningSession::estimateDistanceKmFromActivity($session->activity ?? null);
+            if (is_numeric($estimatedKm)) {
+                $totalDistanceKm += (float) $estimatedKm;
             }
         }
 

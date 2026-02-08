@@ -347,9 +347,9 @@
         ->count();
     $totalKmCreated = 0.0;
     foreach (\App\Models\RunningSession::query()->get(['activity']) as $session) {
-        $activity = (string) ($session->activity ?? '');
-        if (preg_match('/(\d+(?:\.\d+)?)\s*km/i', $activity, $m)) {
-            $totalKmCreated += (float) $m[1];
+        $estimatedKm = \App\Models\RunningSession::estimateDistanceKmFromActivity($session->activity ?? null);
+        if (is_numeric($estimatedKm)) {
+            $totalKmCreated += (float) $estimatedKm;
         }
     }
 @endphp

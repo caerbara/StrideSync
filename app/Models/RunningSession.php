@@ -57,6 +57,34 @@ class RunningSession extends Model
     {
         return $this->hasMany(SessionReview::class, 'running_session_id', 'session_id');
     }
+
+    public static function estimateDistanceKmFromActivity(?string $activity): ?float
+    {
+        $activity = trim((string) $activity);
+        if ($activity === '') {
+            return null;
+        }
+
+        if (preg_match('/(\d+(?:\.\d+)?)\s*km/i', $activity, $m)) {
+            return (float) $m[1];
+        }
+
+        $normalized = strtolower($activity);
+        if (in_array($normalized, ['5km', '5k'], true)) {
+            return 5.0;
+        }
+        if (in_array($normalized, ['10km', '10k'], true)) {
+            return 10.0;
+        }
+        if (strpos($normalized, 'long run') !== false) {
+            return 15.0;
+        }
+        if (strpos($normalized, 'interval') !== false) {
+            return 4.0;
+        }
+
+        return null;
+    }
 }
 
 

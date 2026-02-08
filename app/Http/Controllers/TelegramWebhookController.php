@@ -121,6 +121,19 @@ class TelegramWebhookController extends Controller
         $sessionFlow = $this->getSessionFlow($user);
         $savedLocationLabel = $this->getSavedLocationLabel($user);
 
+        if ($text !== '' && (strcasecmp($text, 'Cancel') === 0 || strpos($text, '/cancel') === 0)) {
+            $this->clearSessionFlow($user);
+            $this->clearDeactivatePending($user);
+            $this->clearReportPending($user);
+            $this->clearReviewPending($user);
+            $this->clearLikeInbox($user);
+            $this->clearLocationUpdatePending($user);
+            $this->clearPhotoUpdatePending($user);
+            $this->removeReplyKeyboard($chatId);
+            $this->showMainMenu($chatId, $user);
+            return;
+        }
+
         // Handle location share
         if (isset($message['location'])) {
             if ($sessionFlow && in_array(($sessionFlow['step'] ?? ''), ['location', 'session_location_choice'], true)) {
