@@ -393,6 +393,36 @@
         color: #e2e8f0;
     }
 
+    .section-title {
+        margin-top: 18px;
+        font-size: 1.05rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #dbe7f3;
+    }
+
+    .filters-toggle {
+        display: none;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #f8fafc;
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+    }
+
+    .mobile-bottom-bar {
+        display: none;
+    }
+
+    .stats-more {
+        display: none;
+    }
+
     @keyframes pulseOnce {
         0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
         70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
@@ -429,6 +459,15 @@
             flex: 1 1 100%;
         }
 
+        .nav-right .btn-primary {
+            display: none;
+        }
+
+        .nav-right .btn-outline,
+        .nav-right #buddyMatchButton {
+            display: none;
+        }
+
         .profile-chip {
             text-align: center;
         }
@@ -443,26 +482,70 @@
             justify-content: center;
         }
 
+        .stats-row:not(.stats-expanded) .stat-item:not(.stat-key) {
+            display: none;
+        }
+
+        .stats-row:not(.stats-expanded) {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .stats-more {
+            display: block;
+            margin-top: 10px;
+            text-align: right;
+            font-size: 0.9rem;
+            color: #e2e8f0;
+        }
+
+        .stats-more button {
+            background: none;
+            border: none;
+            color: #93c5fd;
+            font-weight: 600;
+        }
+
         .controls-row {
             gap: 12px;
         }
 
         .tab-group {
             flex-wrap: wrap;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            padding: 6px;
         }
 
         .dashboard-action {
-            flex: 1 1 calc(50% - 6px);
+            flex: 1 1 50%;
             text-align: center;
+            min-height: 44px;
+        }
+
+        .dashboard-action.active {
+            box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.35);
+        }
+
+        .filters-toggle {
+            display: inline-flex;
+            min-height: 44px;
         }
 
         .filters-row {
+            display: none;
             flex-direction: column;
             align-items: stretch;
         }
 
+        .filters-row.filters-open {
+            display: flex;
+        }
+
         .dashboard-filter {
             width: 100%;
+            min-height: 44px;
         }
 
         .session-card {
@@ -477,10 +560,51 @@
         .session-actions > * {
             flex: 1 1 100%;
             text-align: center;
+            min-height: 44px;
         }
 
         .motivation-line {
             text-align: center;
+        }
+
+        .mobile-bottom-bar {
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            bottom: 12px;
+            z-index: 40;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(12, 16, 24, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: var(--shadow-soft);
+            margin-top: 16px;
+        }
+
+        .mobile-bottom-bar button {
+            min-height: 52px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .mobile-bottom-bar .bar-secondary-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .mobile-bottom-bar .bar-primary {
+            background: #16a34a;
+            color: #ffffff;
+            min-height: 56px;
+            font-size: 1rem;
+        }
+
+        .mobile-bottom-bar .bar-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
     }
 </style>
@@ -493,7 +617,7 @@
         </div>
         <div class="nav-center">Dashboard</div>
         <div class="nav-right">
-            <button id="buddyMatchButton" onclick="openModal('buddyMatchModal')" class="btn-ghost flex items-center gap-2">
+            <button id="buddyMatchButton" onclick="openBuddyMatch()" class="btn-ghost flex items-center gap-2">
                 <span>Buddy Match</span>
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M18 8a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -505,6 +629,15 @@
             <div class="nav-dropdown">
                 <button type="button" id="quickMenuButton" class="btn-ghost">More</button>
                 <div id="quickMenuDropdown" class="nav-dropdown-menu">
+                    <button type="button" onclick="openBuddyMatch()">
+                        <span>Buddy Match</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18 8a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 9a3 3 0 106 0 3 3 0 00-6 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 20a6 6 0 0112 0v1H4v-1z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14 21v-1a5 5 0 015-5h1v1a5 5 0 01-5 5h-1z" />
+                        </svg>
+                    </button>
                     <button type="button" onclick="openModal('courseModal')">
                         <span>Explore Course Distance</span>
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -532,7 +665,8 @@
         </div>
     </nav>
 
-    <div class="stats-row">
+    <h3 class="section-title">Stats</h3>
+    <div class="stats-row" id="statsRow">
         <div class="stat-item">
             <span class="stat-label">Sessions Created</span>
             <span class="stat-value">{{ $fastFacts['total_created'] ?? 0 }}</span>
@@ -541,15 +675,15 @@
             <span class="stat-label">Sessions Joined</span>
             <span class="stat-value">{{ $fastFacts['total_joined'] ?? 0 }}</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-key">
             <span class="stat-label">Upcoming</span>
             <span class="stat-value">{{ $fastFacts['upcoming_count'] ?? 0 }}</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-key">
             <span class="stat-label">Completed</span>
             <span class="stat-value">{{ $fastFacts['completed_count'] ?? 0 }}</span>
         </div>
-        <div class="stat-item">
+        <div class="stat-item stat-key">
             <span class="stat-label">Avg Pace</span>
             <span class="stat-value">{{ $fastFacts['average_pace'] ?? '-' }}</span>
         </div>
@@ -557,6 +691,9 @@
             <span class="stat-label">Total</span>
             <span class="stat-value">{{ number_format($fastFacts['total_distance_km'] ?? 0, 1) }} km</span>
         </div>
+    </div>
+    <div class="stats-more">
+        <button type="button" onclick="toggleStats()">View stats →</button>
     </div>
     <div class="motivation-line">
         Keep moving — your next run is waiting.
@@ -568,6 +705,7 @@
             <button id="tab-past" type="button" onclick="showPast()" class="dashboard-action">History</button>
             <button type="button" data-weekly-schedule-btn onclick="openModal('weeklyScheduleModal')" class="dashboard-action">My Schedule</button>
         </div>
+        <button type="button" class="filters-toggle" onclick="toggleFilters()">Filters</button>
         <div class="filters-row text-black">
             <select id="sortSelect" class="dashboard-filter">
                 <option value="all">Sort: All</option>
@@ -592,6 +730,14 @@
                     <option value="{{ $state }}">{{ $state }}</option>
                 @endforeach
             </select>
+        </div>
+    </div>
+
+    <div class="mobile-bottom-bar">
+        <button type="button" class="bar-primary" onclick="openModal('createSessionModal')">Create Session</button>
+        <div class="bar-secondary-row">
+            <button type="button" class="bar-secondary" onclick="showUpcoming()">Upcoming</button>
+            <button type="button" class="bar-secondary" onclick="openModal('profileModal')">Profile</button>
         </div>
     </div>
 
@@ -1896,13 +2042,25 @@
         }
         window.unlinkTelegram = unlinkTelegram;
 
-        var buddyMatchButton = document.getElementById('buddyMatchButton');
-        if (buddyMatchButton) {
-            buddyMatchButton.addEventListener('click', function() {
-                loadBuddies();
-                openModal('buddyMatchModal');
-            });
+        function toggleFilters() {
+            var row = document.querySelector('.filters-row');
+            if (!row) return;
+            row.classList.toggle('filters-open');
         }
+        window.toggleFilters = toggleFilters;
+
+        function toggleStats() {
+            var row = document.getElementById('statsRow');
+            if (!row) return;
+            row.classList.toggle('stats-expanded');
+        }
+        window.toggleStats = toggleStats;
+
+        function openBuddyMatch() {
+            loadBuddies();
+            openModal('buddyMatchModal');
+        }
+        window.openBuddyMatch = openBuddyMatch;
 
         // Geolocation for create-session modal
         var modalLat = document.getElementById('location_lat');

@@ -273,6 +273,16 @@
 @php
     $sessionCards = collect($activeSessions)->merge($upcomingSessions)->merge($pastSessions)->unique('session_id');
     $userList = \App\Models\User::where('is_admin', false)->orderBy('created_at', 'desc')->get();
+    $newUsersThisWeek = \App\Models\User::where('is_admin', false)
+        ->where('created_at', '>=', \Carbon\Carbon::now()->startOfWeek())
+        ->count();
+    $totalKmCreated = 0.0;
+    foreach (\App\Models\RunningSession::query()->get(['activity']) as $session) {
+        $activity = (string) ($session->activity ?? '');
+        if (preg_match('/(\d+(?:\.\d+)?)\s*km/i', $activity, $m)) {
+            $totalKmCreated += (float) $m[1];
+        }
+    }
 @endphp
 
 <div class="dashboard-backdrop"></div>
@@ -330,20 +340,16 @@
 
     <div class="stats-row">
         <div class="stat-item">
-            <span class="stat-label">Active</span>
-            <span class="stat-value">{{ count($activeSessions ?? []) }}</span>
+            <span class="stat-label">New Users (This Week)</span>
+            <span class="stat-value">{{ $newUsersThisWeek }}</span>
         </div>
         <div class="stat-item">
             <span class="stat-label">Upcoming</span>
             <span class="stat-value">{{ count($upcomingSessions ?? []) }}</span>
         </div>
         <div class="stat-item">
-            <span class="stat-label">Past</span>
-            <span class="stat-value">{{ count($pastSessions ?? []) }}</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Users</span>
-            <span class="stat-value">{{ $userList->count() }}</span>
+            <span class="stat-label">Total KM Created</span>
+            <span class="stat-value">{{ number_format($totalKmCreated, 1) }}</span>
         </div>
     </div>
 
