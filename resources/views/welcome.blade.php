@@ -15,7 +15,7 @@
         }
         .welcome-hero-bg {
             background-image: url('{{ asset('images/bridge-bg.jpg') }}');
-            background-size: contain;
+            background-size: cover;
             background-repeat: no-repeat;
             background-position: center;
             background-color: #0b0f14;
