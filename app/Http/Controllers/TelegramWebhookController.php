@@ -119,6 +119,7 @@ class TelegramWebhookController extends Controller
             $user->update(['telegram_username' => $telegramUsername]);
         }
         $sessionFlow = $this->getSessionFlow($user);
+        $savedLocationLabel = $this->getSavedLocationLabel($user);
 
         // Handle location share
         if (isset($message['location'])) {
@@ -134,6 +135,23 @@ class TelegramWebhookController extends Controller
         if (isset($message['photo'])) {
             $this->handleProfilePhoto($chatId, $user, $message['photo']);
             return;
+        }
+
+        $locationStep = $sessionFlow && in_array(($sessionFlow['step'] ?? ''), ['location', 'session_location_choice'], true);
+        if ($text !== '' && ($user->telegram_state === 'waiting_location' || $this->isLocationUpdatePending($user) || $locationStep)) {
+            $isSavedLocation = $savedLocationLabel && $text === $savedLocationLabel;
+            $label = $sessionFlow['data']['location_button_label'] ?? null;
+            $isLocationChoice = $locationStep && ($sessionFlow['step'] ?? '') === 'session_location_choice' && $label && $text === $label;
+
+            if (!$isSavedLocation && !$isLocationChoice) {
+                if ($locationStep) {
+                    $this->clearSessionFlow($user);
+                }
+                $this->clearLocationUpdatePending($user);
+                $this->removeReplyKeyboard($chatId);
+                $this->showMainMenu($chatId, $user);
+                return;
+            }
         }
 
         if ($user->telegram_state === 'waiting_photo') {
@@ -340,7 +358,6 @@ class TelegramWebhookController extends Controller
             return;
         }
 
-        $savedLocationLabel = $this->getSavedLocationLabel($user);
         if ($savedLocationLabel && $text === $savedLocationLabel) {
             if ($user->telegram_state === 'waiting_location' || $this->isLocationUpdatePending($user)) {
                 $this->clearLocationUpdatePending($user);

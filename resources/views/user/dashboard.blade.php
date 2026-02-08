@@ -1135,6 +1135,9 @@
 
         <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
             <p class="text-sm text-blue-800">Tip: Connect via Telegram to get instant buddy requests!</p>
+            <button type="button" onclick="linkTelegram()" class="mt-3 w-full px-4 py-2 bg-slate-900 text-white rounded hover:bg-slate-800 transition">
+                Open StrideSyncBot
+            </button>
             @if(Auth::user()->telegram_id)
                 <button type="button" onclick="unlinkTelegram()" class="mt-2 w-full px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">
                     Unlink Telegram Account
