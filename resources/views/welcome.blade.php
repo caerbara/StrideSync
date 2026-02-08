@@ -13,6 +13,34 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        .funfact-panel {
+            background: linear-gradient(135deg, #2c2c2c 0%, #1f1f1f 45%, #141414 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+        .funfact-title {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            letter-spacing: 0.18em;
+        }
+        .funfact-mono {
+            font-family: "Courier New", monospace;
+            letter-spacing: 0.08em;
+        }
+        .funfact-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 18px;
+        }
+        @media (min-width: 768px) {
+            .funfact-grid {
+                grid-template-columns: 1.1fr 0.9fr;
+            }
+        }
+        .funfact-stamp {
+            letter-spacing: 0.2em;
+        }
     </style>
 </head>
 <body class="bg-black text-white min-h-screen flex flex-col relative overflow-x-hidden">
@@ -92,6 +120,53 @@
             </div>
         </div>
     </div>
+    </div>
+</section>
+
+<section class="relative z-10 bg-black text-white py-20 px-6">
+    <div class="max-w-6xl mx-auto">
+        <h2 class="text-3xl md:text-4xl poppins-title tracking-tighter mb-8" style="color: #a1e8c5;">INQUIRY</h2>
+
+        <div class="funfact-panel p-6 md:p-10">
+            <div class="funfact-grid">
+                <div class="rounded-2xl overflow-hidden bg-gray-900">
+                    <img src="{{ asset('images/user-bg.jpg') }}" alt="Runners in action" class="w-full h-full object-cover grayscale">
+                </div>
+                <div class="flex flex-col justify-center gap-6">
+                    <div class="funfact-title funfact-mono text-[#a1e8c5]">GOT QUESTIONS?</div>
+                    <div class="space-y-5">
+                        <div>
+                            <div class="flex items-center gap-3 text-[#a1e8c5] funfact-mono text-sm uppercase tracking-[0.2em]">
+                                <span>📍</span>
+                                <span>Write Us</span>
+                            </div>
+                            <p class="text-sm text-gray-200 mt-2">Stridesync.ent, Jalan Delima 1, 72120 Jempol, Negeri Sembilan</p>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 text-[#a1e8c5] funfact-mono text-sm uppercase tracking-[0.2em]">
+                                <span>✉️</span>
+                                <span>Send An Email</span>
+                            </div>
+                            <p class="text-sm text-gray-200 mt-2">StrideSynCO@gmail.com</p>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 text-[#a1e8c5] funfact-mono text-sm uppercase tracking-[0.2em]">
+                                <span>📞</span>
+                                <span>Call Us</span>
+                            </div>
+                            <p class="text-sm text-gray-200 mt-2">123-456-7890</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-10 funfact-mono text-2xl md:text-4xl leading-tight text-white">
+                <div>STRIDE SYNC</div>
+                <div>STRIDE SYNC</div>
+                <div class="funfact-stamp text-[#a1e8c5]">STRIDESYNC</div>
+            </div>
+            <div class="mt-4 text-xs uppercase tracking-[0.25em] text-gray-300">Jempol, Negeri Sembilan · November 13, 2025</div>
+        </div>
     </div>
 </section>
 
