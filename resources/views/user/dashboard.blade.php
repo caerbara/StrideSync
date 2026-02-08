@@ -527,6 +527,32 @@
             border: 1px solid rgba(255, 255, 255, 0.18);
             color: #ffffff;
         }
+
+        .mobile-quick-menu {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
+            padding: 10px;
+            border-radius: 12px;
+            background: rgba(12, 16, 24, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .mobile-quick-menu.open {
+            display: flex;
+        }
+
+        .mobile-quick-menu a,
+        .mobile-quick-menu button {
+            width: 100%;
+            text-align: left;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
     }
 </style>
 
@@ -621,6 +647,11 @@
         <button type="button" onclick="openModal('createSessionModal')" class="btn-primary">Create Session</button>
         <button type="button" onclick="openBuddyMatch()" class="btn-ghost">Buddy Match</button>
         <button type="button" onclick="toggleQuickMenu()" class="btn-ghost">More</button>
+        <div id="mobileQuickMenu" class="mobile-quick-menu">
+            <button type="button" onclick="openModal('courseModal')">Explore Course Distance</button>
+            <button type="button" onclick="openModal('eventCalendarModal')">Event Calendar</button>
+            <a href="{{ route('register') }}">Registration Event</a>
+        </div>
     </div>
 
     <div class="controls-row">
@@ -1556,11 +1587,16 @@
 
         var quickMenuButton = document.getElementById('quickMenuButton');
         var quickMenuDropdown = document.getElementById('quickMenuDropdown');
+        var mobileQuickMenu = document.getElementById('mobileQuickMenu');
 
         function toggleQuickMenu() {
-            if (!quickMenuDropdown) return;
-            var isOpen = quickMenuDropdown.style.display === 'block';
-            quickMenuDropdown.style.display = isOpen ? 'none' : 'block';
+            if (quickMenuDropdown) {
+                var isOpen = quickMenuDropdown.style.display === 'block';
+                quickMenuDropdown.style.display = isOpen ? 'none' : 'block';
+            }
+            if (mobileQuickMenu) {
+                mobileQuickMenu.classList.toggle('open');
+            }
         }
 
         if (quickMenuButton) {
