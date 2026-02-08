@@ -22,8 +22,9 @@
         }
         @media (max-width: 640px) {
             .welcome-hero-bg {
-                background-size: cover;
-                background-position: center;
+                background-size: contain;
+                background-position: top center;
+                transform: scale(1);
             }
         }
         .funfact-panel {
