@@ -22,3 +22,5 @@ $user->save();
 echo "[✓] ✅ User '{$user->name}' ({$user->email}) is now an ADMIN!\n";
 echo "[✓] is_admin value: " . ($user->is_admin ? 'TRUE' : 'FALSE') . "\n";
 ?>
+
+

@@ -3,6 +3,9 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 
 class GeocodingService
 {
@@ -51,6 +54,53 @@ class GeocodingService
             'city' => $city,
             'state' => $state,
         ];
+    }
+
+    public function geocodeLocationName(string $query): ?array
+    {
+        $query = trim($query);
+        if ($query === '') {
+            return null;
+        }
+
+        $cacheKey = 'geocode:' . md5(mb_strtolower($query));
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached) && isset($cached['lat'], $cached['lng'])) {
+            return $cached;
+        }
+
+        $userAgent = env('NOMINATIM_USER_AGENT', 'StrideSync/1.0 (admin@stridesync.local)');
+        $verify = filter_var(env('NOMINATIM_SSL_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
+        try {
+            $response = Http::retry(2, 200)
+                ->timeout(6)
+                ->withOptions(['verify' => $verify])
+                ->withHeaders(['User-Agent' => $userAgent])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'format' => 'jsonv2',
+                    'q' => $query,
+                    'limit' => 1,
+                ]);
+        } catch (ConnectionException | RequestException $e) {
+            return null;
+        }
+
+        if (!$response->ok()) {
+            return null;
+        }
+
+        $payload = $response->json();
+        if (!is_array($payload) || empty($payload[0]['lat']) || empty($payload[0]['lon'])) {
+            return null;
+        }
+
+        $coords = [
+            'lat' => (float) $payload[0]['lat'],
+            'lng' => (float) $payload[0]['lon'],
+        ];
+
+        Cache::put($cacheKey, $coords, now()->addDays(30));
+        return $coords;
     }
 
     private function reverseGeocodeWithSerpApi(float $lat, float $lng, string $apiKey): array
@@ -160,3 +210,5 @@ class GeocodingService
         ];
     }
 }
+
+

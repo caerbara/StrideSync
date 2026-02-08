@@ -27,3 +27,4 @@ class SessionController extends Controller
         return redirect()->back()->with('success', 'You have joined the session.');
     }
 }
+

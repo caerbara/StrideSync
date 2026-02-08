@@ -134,6 +134,7 @@
     const regTacBtn = document.getElementById('sendRegisterTac');
     const regTacStatus = document.getElementById('registerTacStatus');
     const regEmailInput = document.getElementById('email');
+    const regNameInput = document.getElementById('name');
     const regPhotoInput = document.getElementById('photo');
     const regPhotoLabel = document.getElementById('photoLabel');
     let regReverseTimer = null;
@@ -191,6 +192,35 @@
         if (regReverseTimer) clearTimeout(regReverseTimer);
         regReverseTimer = setTimeout(resolveRegArea, 500);
     };
+
+    const formatName = (value) => {
+        const cleaned = (value || '').replace(/\s+/g, ' ').trim();
+        if (!cleaned) return '';
+        return cleaned.split(' ').map((word) => {
+            return word
+                .split(/([-'])/)
+                .map((part) => {
+                    if (part === '-' || part === "'") return part;
+                    if (!part) return '';
+                    return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+                })
+                .join('');
+        }).join(' ');
+    };
+
+    const applyNameFormatting = () => {
+        if (!regNameInput) return;
+        const formatted = formatName(regNameInput.value);
+        if (formatted) regNameInput.value = formatted;
+    };
+
+    if (regNameInput) {
+        regNameInput.addEventListener('blur', applyNameFormatting);
+        const regForm = regNameInput.closest('form');
+        if (regForm) {
+            regForm.addEventListener('submit', applyNameFormatting);
+        }
+    }
 
     const fillRegFromGeo = (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -289,3 +319,5 @@
         });
     }
 </script>
+
+

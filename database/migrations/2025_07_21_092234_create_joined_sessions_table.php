@@ -30,3 +30,5 @@ return new class extends Migration
         Schema::dropIfExists('joined_sessions');
     }
 };
+
+

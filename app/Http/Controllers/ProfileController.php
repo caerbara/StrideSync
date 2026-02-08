@@ -107,7 +107,7 @@ class ProfileController extends Controller
             'strava_screenshot' => $data['strava_screenshot'] ?? $user->strava_screenshot,
         ]);
 
-        return redirect()->route('user.profile')->with('success', 'Profile updated successfully.');
+        return redirect()->route('user.dashboard')->with('success', 'Profile updated successfully.');
     }
 
     public function destroy()
@@ -134,3 +134,5 @@ class ProfileController extends Controller
         ]);
     }
 }
+
+

@@ -64,17 +64,49 @@
                 <p class="text-sm text-gray-800 mt-2">Find out when and where to purchase marathon tickets.</p>
                 <span class="inline-block mt-6 px-4 py-2 rounded-lg bg-black text-white text-xs font-semibold tracking-widest group-hover:bg-gray-900">Learn More</span>
             </a>
-            <a href="{{ route('event.calendar') }}"
-               class="group block rounded-3xl bg-gradient-to-br from-gray-200 to-gray-400 text-black p-8 min-h-[220px] shadow-[6px_6px_0_rgba(0,0,0,1)] border-2 border-black transition-transform duration-200 hover:-translate-y-1 hover:shadow-[10px_10px_0_rgba(0,0,0,1)]">
+            <div class="rounded-3xl bg-gradient-to-br from-gray-200 to-gray-400 text-black p-8 min-h-[220px] shadow-[6px_6px_0_rgba(0,0,0,1)] border-2 border-black">
                 <div class="text-4xl mb-4">💬</div>
                 <h3 class="text-lg font-semibold tracking-[0.15em] uppercase">Feedback</h3>
                 <p class="text-sm text-gray-800 mt-2">Random runner feedback from recent sessions.</p>
-                <span class="inline-block mt-6 px-4 py-2 rounded-lg bg-black text-white text-xs font-semibold tracking-widest group-hover:bg-gray-900">View Feedback</span>
-            </a>
+                <div class="mt-4">
+                    @if(isset($reviews) && $reviews->isNotEmpty())
+                        <div id="feedback-rotator" class="text-base text-gray-900">
+                            @foreach($reviews as $review)
+                                <div class="feedback-item {{ $loop->first ? '' : 'hidden' }}">
+                                    <div class="font-semibold">
+                                        {{ $review->user->name ?? 'Runner' }}
+                                        <span class="ml-2 text-amber-600">
+                                            {{ str_repeat('★', (int) $review->rating) }}{{ str_repeat('☆', max(0, 5 - (int) $review->rating)) }}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-gray-700 mt-1">
+                                        {{ $review->comment ?: 'No comment provided.' }}
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <p class="text-sm text-gray-700">No reviews yet.</p>
+                    @endif
+                </div>
+            </div>
         </div>
     </div>
     </div>
 </section>
+
+<script>
+    (function() {
+        const items = document.querySelectorAll('#feedback-rotator .feedback-item');
+        if (!items || items.length <= 1) return;
+        let index = 0;
+        setInterval(() => {
+            items[index].classList.add('hidden');
+            index = (index + 1) % items.length;
+            items[index].classList.remove('hidden');
+        }, 4000);
+    })();
+</script>
 
 </body>
 </html>

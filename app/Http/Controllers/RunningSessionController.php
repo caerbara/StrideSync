@@ -68,18 +68,26 @@ class RunningSessionController extends Controller
             ->get();
 
         $userCoords = $this->extractCoordinates($user->location);
+        $geoService = app(\App\Services\GeocodingService::class);
 
         // Attach computed distance (km) to each session if both sides have coordinates
-        $decorateSessions = function ($sessions) use ($userCoords) {
+        $decorateSessions = function ($sessions) use ($userCoords, $geoService) {
             foreach ($sessions as $session) {
-                if ($userCoords && !is_null($session->location_lat) && !is_null($session->location_lng)) {
-                    $session->distance_km = $this->haversine(
+                $sessionCoords = $this->resolveSessionCoordinates($session, $geoService);
+                $session->session_lat = $sessionCoords['lat'] ?? null;
+                $session->session_lng = $sessionCoords['lng'] ?? null;
+                $session->session_coords_source = $sessionCoords['source'] ?? null;
+
+                if ($userCoords && $session->session_lat !== null && $session->session_lng !== null) {
+                    $session->session_distance_km = $this->haversine(
                         $userCoords['lat'],
                         $userCoords['lon'],
-                        (float) $session->location_lat,
-                        (float) $session->location_lng
+                        (float) $session->session_lat,
+                        (float) $session->session_lng
                     );
+                    $session->distance_km = $session->session_distance_km;
                 } else {
+                    $session->session_distance_km = null;
                     $session->distance_km = null;
                 }
 
@@ -106,6 +114,10 @@ class RunningSessionController extends Controller
                 $q->where('user_id', $userId)
                     ->orWhereHas('joinedUsers', fn ($qq) => $qq->where('user_id', $userId));
             })
+            ->where(function ($q) use ($now) {
+                $q->where('end_time', '>=', $now)
+                  ->orWhereNull('end_time');
+            })
             ->orderBy('start_time')
             ->get();
 
@@ -124,11 +136,70 @@ class RunningSessionController extends Controller
             ];
         });
 
+        $participatedSessions = RunningSession::where(function ($q) use ($userId) {
+            $q->where('user_id', $userId)
+                ->orWhereHas('joinedUsers', fn ($qq) => $qq->where('user_id', $userId));
+        })->get();
+
+        $totalSessionsCreated = RunningSession::where('user_id', $userId)->count();
+        $totalSessionsJoined = JoinedSession::where('user_id', $userId)->count();
+        $upcomingSessionsCount = $weeklySessions->count();
+        $completedSessionsCount = RunningSession::where(function ($q) use ($userId) {
+            $q->where('user_id', $userId)
+                ->orWhereHas('joinedUsers', fn ($qq) => $qq->where('user_id', $userId));
+        })->where(function ($q) use ($now) {
+            $q->where('end_time', '<', $now)
+                ->orWhereNotNull('completed_at');
+        })->count();
+
+        $paceSamples = [];
+        $totalDistanceKm = 0.0;
+        foreach ($participatedSessions as $session) {
+            $pace = (string) ($session->average_pace ?? '');
+            if ($pace !== '') {
+                preg_match_all('/(\d{1,2}):(\d{2})/', $pace, $matches, PREG_SET_ORDER);
+                if (!empty($matches)) {
+                    $times = array_slice($matches, 0, 2);
+                    $sum = 0.0;
+                    foreach ($times as $t) {
+                        $sum += ((int) $t[1]) + ((int) $t[2]) / 60;
+                    }
+                    $paceSamples[] = $sum / count($times);
+                }
+            }
+
+            $activity = (string) ($session->activity ?? '');
+            if (preg_match('/(\d+(?:\.\d+)?)\s*km/i', $activity, $m)) {
+                $totalDistanceKm += (float) $m[1];
+            }
+        }
+
+        $averagePace = null;
+        if (count($paceSamples) > 0) {
+            $avgMinutes = array_sum($paceSamples) / count($paceSamples);
+            $mins = (int) floor($avgMinutes);
+            $secs = (int) round(($avgMinutes - $mins) * 60);
+            if ($secs === 60) {
+                $mins += 1;
+                $secs = 0;
+            }
+            $averagePace = sprintf('%d:%02d/km', $mins, $secs);
+        }
+
         return view('user.dashboard', [
             'upcomingSessions' => $upcomingSessions,
             'pastSessions' => $pastSessions,
             'states' => self::MALAYSIA_REGIONS,
             'weeklySchedule' => $weeklySchedule,
+            'fastFacts' => [
+                'total_created' => $totalSessionsCreated,
+                'total_joined' => $totalSessionsJoined,
+                'upcoming_count' => $upcomingSessionsCount,
+                'completed_count' => $completedSessionsCount,
+                'average_pace' => $averagePace,
+                'total_distance_km' => $totalDistanceKm,
+            ],
+            'user' => Auth::user(),
         ]);
     }
 
@@ -171,6 +242,14 @@ class RunningSessionController extends Controller
             $locationName = rtrim($locationName, ', ') . ', ' . $state;
         }
 
+        $locationLat = $request->location_lat;
+        $locationLng = $request->location_lng;
+        $geo = app(\App\Services\GeocodingService::class)->geocodeLocationName($locationName);
+        if ($geo) {
+            $locationLat = $geo['lat'];
+            $locationLng = $geo['lng'];
+        }
+
         RunningSession::create([
             'user_id' => Auth::id(),
             'start_time' => $request->start_time,
@@ -179,8 +258,8 @@ class RunningSessionController extends Controller
             'average_pace' => $request->average_pace,
             'duration' => $request->duration,
             'activity' => $request->activity,
-            'location_lat' => $request->location_lat,
-            'location_lng' => $request->location_lng,
+            'location_lat' => $locationLat,
+            'location_lng' => $locationLng,
         ]);
 
         return redirect()->route('user.dashboard')->with('success', 'Session created successfully!');
@@ -212,14 +291,22 @@ class RunningSessionController extends Controller
 
         $user = Auth::user();
         $coords = $this->extractCoordinates($user->location);
-        if ($coords && !is_null($runningSession->location_lat) && !is_null($runningSession->location_lng)) {
-            $runningSession->distance_km = $this->haversine(
+        $geoService = app(\App\Services\GeocodingService::class);
+        $sessionCoords = $this->resolveSessionCoordinates($runningSession, $geoService);
+        $runningSession->session_lat = $sessionCoords['lat'] ?? null;
+        $runningSession->session_lng = $sessionCoords['lng'] ?? null;
+        $runningSession->session_coords_source = $sessionCoords['source'] ?? null;
+
+        if ($coords && $runningSession->session_lat !== null && $runningSession->session_lng !== null) {
+            $runningSession->session_distance_km = $this->haversine(
                 $coords['lat'],
                 $coords['lon'],
-                (float) $runningSession->location_lat,
-                (float) $runningSession->location_lng
+                (float) $runningSession->session_lat,
+                (float) $runningSession->session_lng
             );
+            $runningSession->distance_km = $runningSession->session_distance_km;
         } else {
+            $runningSession->session_distance_km = null;
             $runningSession->distance_km = null;
         }
 
@@ -248,7 +335,17 @@ class RunningSessionController extends Controller
             $locationName = rtrim($locationName, ', ') . ', ' . $state;
         }
 
+        $locationLat = $data['location_lat'] ?? null;
+        $locationLng = $data['location_lng'] ?? null;
+        $geo = app(\App\Services\GeocodingService::class)->geocodeLocationName($locationName);
+        if ($geo) {
+            $locationLat = $geo['lat'];
+            $locationLng = $geo['lng'];
+        }
+
         $data['location_name'] = $locationName;
+        $data['location_lat'] = $locationLat;
+        $data['location_lng'] = $locationLng;
         unset($data['state']);
 
         $runningSession->update($data);
@@ -260,6 +357,11 @@ class RunningSessionController extends Controller
     {
         $this->authorizeOwner($runningSession);
         $runningSession->delete();
+        $user = Auth::user();
+        if ($user && $user->isAdmin()) {
+            return redirect()->route('admin.dashboard')->with('success', 'Session deleted.');
+        }
+
         return redirect()->route('user.dashboard')->with('success', 'Session deleted.');
     }
 
@@ -308,6 +410,13 @@ class RunningSessionController extends Controller
             return redirect()->route('user.dashboard')->with('error', 'You can review only after the session ends.');
         }
 
+        $alreadyReviewed = SessionReview::where('running_session_id', $runningSession->session_id)
+            ->where('user_id', $userId)
+            ->exists();
+        if ($alreadyReviewed) {
+            return redirect()->route('user.dashboard')->with('error', 'You have already reviewed this session.');
+        }
+
         SessionReview::create([
             'running_session_id' => $runningSession->session_id,
             'user_id' => Auth::id(),
@@ -320,7 +429,12 @@ class RunningSessionController extends Controller
 
     private function authorizeOwner(RunningSession $runningSession): void
     {
-        if ($runningSession->user_id !== Auth::id()) {
+        $user = Auth::user();
+        if (!$user) {
+            abort(403, 'Unauthorized');
+        }
+
+        if (!$user->isAdmin() && $runningSession->user_id !== $user->id) {
             abort(403, 'Unauthorized');
         }
     }
@@ -335,13 +449,20 @@ class RunningSessionController extends Controller
         }
 
         $data = is_array($location) ? $location : json_decode($location, true);
-        if (!$data || !isset($data['latitude'], $data['longitude'])) {
+        if (!$data) {
+            return null;
+        }
+
+        $lat = $data['latitude'] ?? $data['lat'] ?? null;
+        $lon = $data['longitude'] ?? $data['lng'] ?? $data['lon'] ?? null;
+
+        if (!is_numeric($lat) || !is_numeric($lon)) {
             return null;
         }
 
         return [
-            'lat' => (float) $data['latitude'],
-            'lon' => (float) $data['longitude'],
+            'lat' => (float) $lat,
+            'lon' => (float) $lon,
         ];
     }
 
@@ -361,6 +482,31 @@ class RunningSessionController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return round($earthRadius * $c, 1); // one decimal place
+    }
+
+    private function resolveSessionCoordinates($session, \App\Services\GeocodingService $geoService): array
+    {
+        $name = trim((string) ($session->location_name ?? ''));
+        if ($name !== '') {
+            $geo = $geoService->geocodeLocationName($name);
+            if ($geo) {
+                return [
+                    'lat' => $geo['lat'],
+                    'lng' => $geo['lng'],
+                    'source' => 'geocode',
+                ];
+            }
+        }
+
+        if (!is_null($session->location_lat) && !is_null($session->location_lng)) {
+            return [
+                'lat' => (float) $session->location_lat,
+                'lng' => (float) $session->location_lng,
+                'source' => 'stored',
+            ];
+        }
+
+        return [];
     }
 
     /**
@@ -405,6 +551,8 @@ class RunningSessionController extends Controller
         }
     }
 }
+
+
 
 
 

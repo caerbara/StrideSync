@@ -16,6 +16,10 @@ use App\Http\Controllers\EmailTacController;
 use App\Http\Controllers\ForgotPasswordController;
 use App\Http\Controllers\EventCalendarController;
 use App\Http\Controllers\CourseController;
+use App\Models\SessionReview;
+use Illuminate\Support\Facades\Cache;
+use App\Http\Controllers\GeocodeController;
+use App\Http\Controllers\DistanceController;
 
 use App\Http\Controllers\TelegramWebhookController;
 
@@ -25,7 +29,18 @@ use App\Http\Controllers\TelegramWebhookController;
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', fn() => view('welcome'))->name('welcome');
+Route::get('/', function () {
+    $reviews = Cache::remember('welcome.reviews', now()->addMinutes(5), function () {
+        return SessionReview::with(['user', 'session'])
+            ->latest()
+            ->take(5)
+            ->get();
+    });
+
+    return view('welcome', [
+        'reviews' => $reviews,
+    ]);
+})->name('welcome');
 
 // Authentication
 Route::get('/login', fn() => view('auth.login'))->name('login');
@@ -40,6 +55,8 @@ Route::post('/forgot-password/send-tac', [EmailTacController::class, 'sendForgot
 Route::post('/forgot-password/reset', [ForgotPasswordController::class, 'reset'])->name('password.reset');
 Route::get('/event-calendar', [EventCalendarController::class, 'show'])->name('event.calendar');
 Route::get('/course', [CourseController::class, 'show'])->name('course');
+Route::get('/geocode-location', [GeocodeController::class, 'locationSearch'])->name('geocode.location');
+Route::get('/route-distance', [DistanceController::class, 'routeDistance'])->name('route.distance');
 
 // Telegram Webhook (no CSRF protection needed for Telegram)
 Route::post('/webhook/telegram', [TelegramWebhookController::class, 'handle']);
@@ -50,6 +67,13 @@ Route::post('/logout', function () {
     request()->session()->regenerateToken();
     return redirect('/');
 })->name('logout');
+
+Route::get('/logout', function () {
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect('/');
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -88,6 +112,10 @@ Route::middleware('auth')->group(function () {
             ->name('admin.view-user');
         Route::get('/admin/sessions/{id}', [AdminController::class, 'viewSession'])
             ->name('admin.view-session');
+        Route::delete('/admin/reviews/{review}', [AdminController::class, 'deleteReview'])
+            ->name('admin.reviews.delete');
+        Route::post('/admin/reviews/{review}/feature', [AdminController::class, 'toggleReviewFeatured'])
+            ->name('admin.reviews.feature');
     });
 
     /*
@@ -208,3 +236,5 @@ Route::prefix('/test')->group(function () {
     Route::get('/telegram/gender/{gender}', [TelegramTestController::class, 'testGender'])->name('test.telegram.gender');
     Route::get('/telegram/user', [TelegramTestController::class, 'getTestUser'])->name('test.telegram.user');
 });
+
+

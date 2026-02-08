@@ -173,3 +173,5 @@ App\Models\JoinedSession::create([
 - Statistics are fetched from the database on page load
 - Real-time updates happen via AJAX to `/admin/stats`
 - User and session details are loaded on-demand via modals
+
+

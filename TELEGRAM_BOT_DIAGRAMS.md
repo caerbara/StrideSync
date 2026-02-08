@@ -193,7 +193,7 @@ User clicks "➕ Create Session"
         ↓
 [DISPLAY GUIDE]
 ├─ Message with link:
-│  https://stridesync.com/sessions/create
+│  https://stridesync.app/sessions/create
 ├─ Option: Click link to website
 └─ Optional: QR code image
         ↓
@@ -526,3 +526,6 @@ SELECT from joined_sessions WHERE
        CREATE new joined_sessions record
        Send confirmation messages
 ```
+
+
+

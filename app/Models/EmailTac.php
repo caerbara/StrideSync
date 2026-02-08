@@ -23,3 +23,5 @@ class EmailTac extends Model
         'used_at' => 'datetime',
     ];
 }
+
+

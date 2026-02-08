@@ -26,3 +26,4 @@ class JoinedSession extends Model
     }
 }
 
+

@@ -108,3 +108,5 @@ class CloudinaryService
         return sha1($toSign . $this->apiSecret);
     }
 }
+
+

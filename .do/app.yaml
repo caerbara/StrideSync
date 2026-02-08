@@ -88,6 +88,31 @@ workers:
     instance_count: 1
     instance_size_slug: basic-xxs
     source_dir: /
+  - name: scheduler
+    github:
+      repo: caerbara/stridesync
+      branch: main
+      deploy_on_push: true
+    build_command: composer install --no-dev --optimize-autoloader
+    run_command: php artisan schedule:work --verbose --no-interaction --quiet
+    envs:
+      - key: APP_NAME
+        value: StrideSync
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        value: ${APP_KEY}
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+        type: SECRET
+      - key: QUEUE_CONNECTION
+        value: database
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    source_dir: /
 
 jobs:
   - name: migrate
@@ -110,3 +135,4 @@ jobs:
         type: SECRET
     instance_size_slug: basic-xxs
     source_dir: /
+

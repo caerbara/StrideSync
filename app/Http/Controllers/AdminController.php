@@ -7,6 +7,8 @@ use App\Models\RunningSession;
 use App\Models\JoinedSession;
 use Carbon\Carbon;
 use App\Models\User;
+use App\Models\SessionReview;
+use Illuminate\Support\Facades\Cache;
 
 
 class AdminController extends Controller
@@ -76,6 +78,11 @@ class AdminController extends Controller
             ->take(10)
             ->get();
 
+        $recentReviews = SessionReview::with(['user', 'session.user'])
+            ->latest()
+            ->take(20)
+            ->get();
+
         return view('admin.dashboard', compact(
             'totalUsers',
             'recentUsers',
@@ -89,7 +96,8 @@ class AdminController extends Controller
             'telegramUsersRegistered',
             'telegramUsersWithoutProfile',
             'registrationTrend',
-            'mostActiveUsers'
+            'mostActiveUsers',
+            'recentReviews'
         ));
     }
 
@@ -133,4 +141,40 @@ class AdminController extends Controller
         
         return view('admin.session-detail', compact('session'));
     }
+
+    public function deleteReview(SessionReview $review)
+    {
+        $review->delete();
+        Cache::forget('welcome.reviews');
+
+        return redirect()
+            ->route('admin.dashboard')
+            ->with('success', 'Review deleted.');
+    }
+
+    public function toggleReviewFeatured(SessionReview $review)
+    {
+        if (! $review->is_featured) {
+            $featuredCount = SessionReview::where('is_featured', true)->count();
+            if ($featuredCount >= 5) {
+                return redirect()
+                    ->route('admin.dashboard')
+                    ->with('error', 'Only 5 reviews can be featured at a time.');
+            }
+            $review->is_featured = true;
+            $review->featured_at = now();
+        } else {
+            $review->is_featured = false;
+            $review->featured_at = null;
+        }
+
+        $review->save();
+        Cache::forget('welcome.reviews');
+
+        return redirect()
+            ->route('admin.dashboard')
+            ->with('success', $review->is_featured ? 'Review featured.' : 'Review unfeatured.');
+    }
 }
+
+

@@ -27,3 +27,5 @@ class MakeUserAdmin extends Command
         return 0;
     }
 }
+
+

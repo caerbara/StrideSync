@@ -32,3 +32,5 @@ class JoinedSession extends Model
         return $this->belongsTo(RunningSession::class, 'session_id');
     }
 }
+
+

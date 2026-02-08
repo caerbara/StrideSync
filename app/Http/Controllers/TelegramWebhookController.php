@@ -80,7 +80,7 @@ class TelegramWebhookController extends Controller
 
                 $existing = User::whereRaw('LOWER(email) = ?', [$email])->first();
                 if (!$existing) {
-                    $this->sendMessage($chatId, "No account found for that email. Please register first:\nhttps://stridesync.com/register");
+                    $this->sendMessage($chatId, "No account found for that email. Please register first:\nhttps://stridesync.app/register");
                     return;
                 }
 
@@ -110,7 +110,7 @@ class TelegramWebhookController extends Controller
 
             $this->setEmailLinkPending($chatId);
             $this->sendMessage($chatId, "Hi {$firstName}! Please reply with the email you used on StrideSync to link your account.");
-            $this->sendMessage($chatId, "No account yet? Register here:\nhttps://stridesync.com/register");
+            $this->sendMessage($chatId, "No account yet? Register here:\nhttps://stridesync.app/register");
             return;
         }
 
@@ -169,14 +169,38 @@ class TelegramWebhookController extends Controller
         $reportPending = $this->getReportPending($user);
         if ($reportPending) {
             $normalizedText = trim(strtolower($text));
+            if (($reportPending['step'] ?? 'select') === 'custom_reason') {
+                if ($normalizedText === 'cancel') {
+                    $this->clearReportPending($user);
+                    $this->sendMessage($chatId, 'Report canceled.');
+                    $this->showMainMenu($chatId, $user);
+                    return;
+                }
+
+                $target = User::find($reportPending['target_id'] ?? null);
+                if (!$target) {
+                    $this->clearReportPending($user);
+                    $this->sendMessage($chatId, 'The reported user is no longer available.');
+                    $this->showMainMenu($chatId, $user);
+                    return;
+                }
+
+                $reason = trim($text);
+                if ($reason === '') {
+                    $this->sendMessage($chatId, 'Please type a reason or type cancel.');
+                    return;
+                }
+
+                $this->notifyAdminsReport($user, $target, $reason);
+                $this->clearReportPending($user);
+                $this->sendMessage($chatId, 'Report submitted to admins.');
+                $this->showMainMenu($chatId, $user);
+                return;
+            }
+
             if ($normalizedText === 'cancel') {
                 $this->clearReportPending($user);
-                Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
-                    'chat_id' => $chatId,
-                    'text' => 'Report canceled.',
-                    'parse_mode' => 'HTML',
-                    'reply_markup' => json_encode(['remove_keyboard' => true]),
-                ]);
+                $this->sendMessage($chatId, 'Report canceled.');
                 $this->showMainMenu($chatId, $user);
                 return;
             }
@@ -230,10 +254,16 @@ class TelegramWebhookController extends Controller
                 return;
             }
 
-            $saved = $this->storeTelegramReview($user, (int) $reviewPending['session_id'], (int) $reviewPending['rating'], $comment);
+            $sessionId = (int) $reviewPending['session_id'];
+            $rating = (int) $reviewPending['rating'];
+            $saved = $this->storeTelegramReview($user, $sessionId, $rating, $comment);
             $this->clearReviewPending($user);
-            $this->sendMessage($chatId, $saved ? 'Thanks! Your review was submitted.' : 'Unable to submit review.');
-            $this->showMainMenu($chatId, $user);
+            if ($saved) {
+                $this->notifyAdminsReview($user, $sessionId, $rating, $comment);
+                $this->showMainMenu($chatId, $user, 'Thanks for your review! Your review has been submitted.');
+            } else {
+                $this->showMainMenu($chatId, $user, 'Unable to submit review.');
+            }
             return;
         }
 
@@ -360,12 +390,15 @@ class TelegramWebhookController extends Controller
     // === 3. MAIN MENU ===
     // ==========================================
 
-    private function showMainMenu($chatId, $user)
+    private function showMainMenu($chatId, $user, ?string $notice = null)
     {
         $state = $this->syncTelegramState($user);
         $isProfileComplete = $state === 'profile_complete';
 
         if (!$isProfileComplete) {
+            if ($notice) {
+                $this->sendMessage($chatId, $notice);
+            }
             $intro = "<b>StrideSyncBot</b>\n";
             $intro .= "Connect with runners near you, create running sessions, and join runs around your area. Find a running buddy, sync your pace, and stay motivated together.\n\n";
             $intro .= "- Discover runners near you\n";
@@ -386,6 +419,9 @@ class TelegramWebhookController extends Controller
             $message .= "- Join nearby runs\n";
             $message .= "- Manage your running profile\n\n";
             $message .= "Stay consistent, stay social, and run smarter.";
+            if ($notice) {
+                $message = "<b>{$notice}</b>\n\n" . $message;
+            }
 
               $inlineKeyboard = [
                   'inline_keyboard' => [
@@ -605,8 +641,6 @@ class TelegramWebhookController extends Controller
     {
         $userCoords = $this->extractCoordinates($user->location);
         $userLocationData = $user->location ? json_decode($user->location, true) : null;
-        $userState = is_array($userLocationData) ? ($userLocationData['state'] ?? null) : null;
-        $userState = $userState ? strtolower(trim($userState)) : null;
         if (!$userCoords) {
             Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
                 'chat_id' => $chatId,
@@ -631,6 +665,9 @@ class TelegramWebhookController extends Controller
             ]);
             return;
         }
+        $userState = is_array($userLocationData) ? ($userLocationData['state'] ?? null) : null;
+        $userState = $userState ? strtolower(trim($userState)) : null;
+
         if (!$userState) {
             $resolved = $this->resolveStateFromCoords($userCoords['lat'], $userCoords['lon']);
             if ($resolved) {
@@ -646,19 +683,11 @@ class TelegramWebhookController extends Controller
             return;
         }
 
-        $excludedIds = BuddyLike::where('liker_id', $user->id)->pluck('liked_id')->all();
-        $blockedByIds = BuddyLike::where('liked_id', $user->id)
-            ->where('status', 'dislike')
-            ->pluck('liker_id')
-            ->all();
-        $excludeIds = array_unique(array_merge($excludedIds, $blockedByIds, [$user->id]));
-
         $candidates = User::where('telegram_id', '!=', $user->telegram_id)
             ->whereNotNull('telegram_id')
             ->whereNotNull('location')
             ->where('telegram_state', 'profile_complete')
             ->whereNotNull('avg_pace')
-            ->whereNotIn('id', $excludeIds)
             ->get();
 
         $queue = $candidates
@@ -668,13 +697,11 @@ class TelegramWebhookController extends Controller
                     return null;
                 }
 
-                if ($userState) {
-                    $buddyLocationData = $buddy->location ? json_decode($buddy->location, true) : null;
-                    $buddyState = is_array($buddyLocationData) ? ($buddyLocationData['state'] ?? null) : null;
-                    $buddyState = $buddyState ? strtolower(trim($buddyState)) : null;
-                    if ($buddyState !== $userState) {
-                        return null;
-                    }
+                $buddyLocationData = $buddy->location ? json_decode($buddy->location, true) : null;
+                $buddyState = is_array($buddyLocationData) ? ($buddyLocationData['state'] ?? null) : null;
+                $buddyState = $buddyState ? strtolower(trim($buddyState)) : null;
+                if ($buddyState !== $userState) {
+                    return null;
                 }
 
                 $distance = $this->calculateDistance(
@@ -740,6 +767,7 @@ class TelegramWebhookController extends Controller
                     [
                           ['text' => 'Accept', 'callback_data' => "accept_invite_{$invitation->id}"],
                           ['text' => 'Decline', 'callback_data' => "decline_invite_{$invitation->id}"],
+                          ['text' => 'Report', 'callback_data' => "report_invite_{$invitation->id}"],
                     ]
                 ]
             ];
@@ -779,6 +807,9 @@ class TelegramWebhookController extends Controller
         $message = "<b>Your Weekly Schedule</b>\n";
         $message .= $weekStart->format('M d') . ' - ' . $weekEnd->format('M d, Y') . "\n\n";
 
+        // Send header
+        $this->sendMessage($chatId, trim($message));
+
         foreach ($sessions as $session) {
             $hasConflict = $sessions->contains(function ($other) use ($session) {
                 if ($other->session_id === $session->session_id) {
@@ -793,25 +824,24 @@ class TelegramWebhookController extends Controller
             $role = $session->user_id === $user->id ? 'Organizer' : 'Participant';
             $conflictText = $hasConflict ? ' OVERLAP' : '';
 
-            $message .= "<b>{$start} - {$end}</b>{$conflictText}\n";
-            $message .= "Location: {$location}\n";
-            $message .= "Role: {$role}\n\n";
+            $sessionText = "<b>{$start} - {$end}</b>{$conflictText}\n";
+            $sessionText .= "Location: {$location}\n";
+            $sessionText .= "Role: {$role}\n";
+
+            $buttons = [];
+            if ($role === 'Participant') {
+                $buttons[] = ['text' => 'Unjoin', 'callback_data' => "unjoin_session_{$session->session_id}"];
+            }
+
+            $inlineKeyboard = $buttons ? ['inline_keyboard' => [ $buttons, [ ['text' => 'Main Menu', 'callback_data' => 'menu_main'], ], ],] : ['inline_keyboard' => [ [ ['text' => 'Main Menu', 'callback_data' => 'menu_main'], ], ],];
+
+            Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
+                'chat_id' => $chatId,
+                'text' => trim($sessionText),
+                'parse_mode' => 'HTML',
+                'reply_markup' => json_encode($inlineKeyboard),
+            ]);
         }
-
-        $inlineKeyboard = [
-            'inline_keyboard' => [
-                [
-                    ['text' => 'Main Menu', 'callback_data' => 'menu_main'],
-                ],
-            ],
-        ];
-
-        Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
-            'chat_id' => $chatId,
-            'text' => trim($message),
-            'parse_mode' => 'HTML',
-            'reply_markup' => json_encode($inlineKeyboard),
-        ]);
     }
 
     // ==========================================
@@ -820,14 +850,26 @@ class TelegramWebhookController extends Controller
 
         private function showRunningSessions($chatId, $user)
     {
+        $userLocationData = $user->location ? json_decode($user->location, true) : null;
+        $userState = is_array($userLocationData) ? ($userLocationData['state'] ?? null) : null;
+        if (!$userState) {
+            $this->sendMessage($chatId, 'Please share your location so I can show nearby sessions in your state.');
+            $this->sendLocationRequest($chatId, 'Share your current location to find nearby runs.', $user);
+            return;
+        }
+
         $sessions = RunningSession::with(['user'])->withCount('joinedUsers')
             ->where('end_time', '>=', Carbon::now())
             ->orderBy('start_time', 'asc')
-            ->take(10)
-            ->get();
+            ->get()
+            ->filter(function ($session) use ($userState) {
+                $location = $session->location_name ?? '';
+                return $location !== '' && stripos($location, $userState) !== false;
+            })
+            ->take(10);
 
         if ($sessions->isEmpty()) {
-            $this->sendMessage($chatId, 'No running sessions right now.');
+            $this->sendMessage($chatId, "No running sessions found in {$userState} right now.");
             $this->showMainMenu($chatId, $user);
             return;
         }
@@ -881,9 +923,9 @@ class TelegramWebhookController extends Controller
     {
         $guide = "<b>Create a Running Session</b>\n\n";
         $guide .= "To create a running session, visit our website:\n";
-        $guide .= "<b>https://stridesync.com/sessions/create</b>\n\n";
+        $guide .= "<b>https://stridesync.app/sessions/create</b>\n\n";
         $guide .= "Or use this quick link:\n";
-        $guide .= "<a href='https://stridesync.com/sessions/create'>Create Session on StrideSync</a>\n\n";
+        $guide .= "<a href='https://stridesync.app/sessions/create'>Create Session on StrideSync</a>\n\n";
         $guide .= "You can also scan this code with your phone!";
 
         $this->sendMessage($chatId, $guide);
@@ -938,6 +980,9 @@ class TelegramWebhookController extends Controller
 
     private function startSessionCreation($chatId, $user)
     {
+        // Reset any stale flow so users always start clean.
+        $this->clearSessionFlow($user);
+
         $locationName = 'Unknown';
         $locationLat = null;
         $locationLng = null;
@@ -955,6 +1000,18 @@ class TelegramWebhookController extends Controller
 
             $locationLat = isset($locationData['latitude']) ? (float) $locationData['latitude'] : null;
             $locationLng = isset($locationData['longitude']) ? (float) $locationData['longitude'] : null;
+        }
+
+        // If we lack coordinates, ask for location first.
+        if ($locationLat === null || $locationLng === null) {
+            $this->setSessionFlow($user, [
+                'step' => 'location',
+                'data' => [
+                    'session_mode' => 'quick',
+                ],
+            ]);
+            $this->sendLocationRequest($chatId, 'Share your current location to create a session.', $user);
+            return;
         }
 
         $this->setSessionFlow($user, [
@@ -978,7 +1035,7 @@ class TelegramWebhookController extends Controller
 
             $message = "Create a new session.\n";
             $message .= "Choose a location:";
-            $this->sendLocationRequest($chatId, $message, $user);
+            $this->sendLocationChoiceRequest($chatId, $message, $locationLabel);
             return;
         }
 
@@ -986,6 +1043,7 @@ class TelegramWebhookController extends Controller
         $message .= "Location: {$locationName}\n";
         $message .= "Choose the day for your run:";
 
+        // Show quick, simple inline buttons right away.
         $this->sendSessionDayOptions($chatId, $message);
     }
 
@@ -1004,21 +1062,14 @@ class TelegramWebhookController extends Controller
             $resolved = $geo->reverseGeocodeCityState((float) $lat, (float) $lng);
             $city = $resolved['city'] ?? null;
             $state = $resolved['state'] ?? null;
-            $locationName = 'Unknown';
-            if ($city && $state) {
-                $locationName = trim($city) . ', ' . trim($state);
-            } elseif ($city) {
-                $locationName = trim($city);
-            } elseif ($state) {
-                $locationName = trim($state);
-            }
-
-            $sessionFlow['data']['location_name'] = $locationName;
             $sessionFlow['data']['location_lat'] = (float) $lat;
             $sessionFlow['data']['location_lng'] = (float) $lng;
-            $sessionFlow['step'] = 'session_day';
+            if ($state) {
+                $sessionFlow['data']['location_state'] = $state;
+            }
+            $sessionFlow['step'] = 'location_label';
             $this->setSessionFlow($user, $sessionFlow);
-            $this->sendSessionDayOptions($chatId, 'Choose the day for your run:');
+            $this->sendMessage($chatId, 'Location received. Now type the place where the run will start (e.g. "Padang Kawad UiTM Jasin, Melaka").');
             return;
         }
 
@@ -1041,142 +1092,28 @@ class TelegramWebhookController extends Controller
         }
 
         if ($step === 'location') {
-            if ($text === '') {
-                $this->sendMessage($chatId, 'Please send the district and state.');
-                return;
-            }
-
-            $data['location_name'] = $text;
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'start_time';
-            $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send start time (e.g. 2025-12-17 19:30, 7:30pm, or tomorrow 7pm).');
+            // Require a location share (button), no typing needed.
+            $this->sendLocationRequest($chatId, 'Tap the button to share your current location.', $user);
             return;
         }
-
         if ($step === 'location_label') {
-            if ($text === '') {
-                $this->sendMessage($chatId, 'Please send the district and state.');
+            $label = trim($text);
+            if ($label === '' || stripos($label, 'cancel') !== false) {
+                $this->clearSessionFlow($user);
+                $this->showMainMenu($chatId, $user);
                 return;
             }
-
-            $data['location_name'] = $text;
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'start_time';
+            if (!empty($data['location_state']) && stripos($label, $data['location_state']) === false) {
+                $label = rtrim($label, ', ') . ', ' . $data['location_state'];
+            }
+            $sessionFlow['data']['location_name'] = $label;
+            $sessionFlow['step'] = 'session_day';
             $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send start time (e.g. 2025-12-17 19:30, 7:30pm, or tomorrow 7pm).');
+            $message = "Location: {$label}\nChoose the day for your run:";
+            $this->sendSessionDayOptions($chatId, $message);
             return;
         }
-
-        if ($step === 'start_time') {
-            $start = $this->parseSessionTime($text);
-            if (!$start) {
-                $this->sendMessage($chatId, 'Invalid time format. Try 2025-12-17 19:30, 7:30pm, or tomorrow 7pm.');
-                return;
-            }
-
-            $data['start_time'] = $start->format('Y-m-d H:i');
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'end_time';
-            $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send end time (e.g. 2025-12-17 21:00, 9pm, or tomorrow 9pm).');
-            return;
-        }
-
-        if ($step === 'end_time') {
-            $end = $this->parseSessionTime($text);
-            if (!$end) {
-                $this->sendMessage($chatId, 'Invalid time format. Try 2025-12-17 21:00, 9pm, or tomorrow 9pm.');
-                return;
-            }
-
-            $start = $this->parseSessionTime($data['start_time'] ?? '');
-            if ($start && $end->lt($start)) {
-                $this->sendMessage($chatId, 'End time must be after start time.');
-                return;
-            }
-
-            $data['end_time'] = $end->format('Y-m-d H:i');
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'average_pace';
-            $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send average pace (e.g. 6:00/km).');
-            return;
-        }
-
-        if ($step === 'average_pace') {
-            if ($text === '') {
-                $this->sendMessage($chatId, 'Please send an average pace.');
-                return;
-            }
-
-            $data['average_pace'] = $text;
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'activity';
-            $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send activity (e.g. 5km, 10km, Long Run, Interval).');
-            return;
-        }
-
-        if ($step === 'activity') {
-            if ($text === '') {
-                $this->sendMessage($chatId, 'Please send an activity.');
-                return;
-            }
-
-            $data['activity'] = $text;
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'duration';
-            $this->setSessionFlow($user, $sessionFlow);
-            $this->sendMessage($chatId, 'Send duration (e.g. 01:00:00).');
-            return;
-        }
-
-        if ($step === 'duration') {
-            if ($text === '') {
-                $this->sendMessage($chatId, 'Please send a duration.');
-                return;
-            }
-
-            $data['duration'] = $text;
-            $sessionFlow['data'] = $data;
-            $sessionFlow['step'] = 'confirm';
-            $this->setSessionFlow($user, $sessionFlow);
-
-            $summary = "Please confirm your session:\n";
-            $summary .= "Location: {$data['location_name']}\n";
-            $summary .= "Start: {$data['start_time']}\n";
-            $summary .= "End: {$data['end_time']}\n";
-            $summary .= "Pace: {$data['average_pace']}\n";
-            $summary .= "Activity: {$data['activity']}\n";
-            $summary .= "Duration: {$data['duration']}\n";
-            $summary .= "Reminders: 30 min before, 10 min before";
-
-            $inlineKeyboard = [
-                'inline_keyboard' => [
-                    [
-['text' => '? Confirm', 'callback_data' => 'session_create_confirm'],
-['text' => '? Cancel', 'callback_data' => 'session_create_cancel'],
-                    ]
-                ]
-            ];
-
-            Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
-                'chat_id' => $chatId,
-                'text' => $summary,
-                'reply_markup' => json_encode($inlineKeyboard),
-                'parse_mode' => 'HTML'
-            ]);
-            return;
-        }
-
-        if ($step === 'confirm') {
-            $this->sendMessage($chatId, 'Use the buttons to confirm or cancel.');
-            return;
-        }
-
-        $this->clearSessionFlow($user);
-        $this->sendMessage($chatId, 'Session creation expired. Please start again.');
+        $this->sendMessage($chatId, 'Please use the buttons to create your session.');
     }
 
     private function parseSessionTime($value)
@@ -1402,8 +1339,11 @@ class TelegramWebhookController extends Controller
     private function getSessionTimeSlots(): array
     {
         return [
+            '5am' => [5, 0],
             '6am' => [6, 0],
             '7am' => [7, 0],
+            '8am' => [8, 0],
+            '5pm' => [17, 0],
             '6pm' => [18, 0],
             '7pm' => [19, 0],
             '8pm' => [20, 0],
@@ -1415,8 +1355,13 @@ class TelegramWebhookController extends Controller
         $inlineKeyboard = [
             'inline_keyboard' => [
                 [
+                    ['text' => '5am', 'callback_data' => 'session_time_5am'],
                     ['text' => '6am', 'callback_data' => 'session_time_6am'],
                     ['text' => '7am', 'callback_data' => 'session_time_7am'],
+                ],
+                [
+                    ['text' => '8am', 'callback_data' => 'session_time_8am'],
+                    ['text' => '5pm', 'callback_data' => 'session_time_5pm'],
                 ],
                 [
                     ['text' => '6pm', 'callback_data' => 'session_time_6pm'],
@@ -1544,7 +1489,37 @@ class TelegramWebhookController extends Controller
     private function sendLocationRequest($chatId, $prompt, $user = null): void
     {
         $keyboard = [
-            ['text' => 'Share my location', 'request_location' => true],
+            [
+                ['text' => 'Share my location', 'request_location' => true],
+            ],
+            [
+                ['text' => 'Cancel'],
+            ],
+        ];
+
+        Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
+            'chat_id' => $chatId,
+            'text' => $prompt,
+            'reply_markup' => json_encode([
+                'keyboard' => $keyboard,
+                'resize_keyboard' => true,
+                'one_time_keyboard' => true
+            ])
+        ]);
+    }
+
+    private function sendLocationChoiceRequest($chatId, $prompt, string $locationLabel): void
+    {
+        $keyboard = [
+            [
+                ['text' => $locationLabel],
+            ],
+            [
+                ['text' => 'Share my location', 'request_location' => true],
+            ],
+            [
+                ['text' => 'Cancel'],
+            ],
         ];
 
         Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
@@ -1871,7 +1846,24 @@ class TelegramWebhookController extends Controller
             $this->showRunningSessions($chatId, $user);
         }
         elseif ($data === 'menu_create_session') {
-            $this->startSessionCreation($chatId, $user);
+            if (isset($callbackId)) {
+                Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackId,
+                    'text' => 'Creating a session...',
+                    'show_alert' => false,
+                ]);
+            }
+            try {
+                $this->sendMessage($chatId, 'Starting session creation...');
+                $this->startSessionCreation($chatId, $user);
+            } catch (\Throwable $e) {
+                \Log::error('Telegram create session failed', [
+                    'user_id' => $user->id ?? null,
+                    'chat_id' => $chatId,
+                    'error' => $e->getMessage(),
+                ]);
+                $this->sendMessage($chatId, 'Unable to start session creation. Please try again.');
+            }
         }
         elseif ($data === 'menu_review') {
             $this->showReviewOptions($chatId, $user);
@@ -1880,6 +1872,10 @@ class TelegramWebhookController extends Controller
             $sessionId = (int) str_replace('review_select_', '', $data);
             $this->setReviewPending($user, $sessionId, null, 'rating');
             $this->sendReviewRatingOptions($chatId, $sessionId);
+        }
+        elseif ($data === 'review_rate_cancel') {
+            $this->clearReviewPending($user);
+            $this->showMainMenu($chatId, $user);
         }
         elseif (preg_match('/^review_rate_(\d+)_(\d+)$/', $data, $matches)) {
             $sessionId = (int) $matches[1];
@@ -1911,6 +1907,13 @@ class TelegramWebhookController extends Controller
         }
         // ===== SESSION CREATE CONFIRM =====
         elseif ($data === 'session_create_confirm') {
+            if (isset($callbackId)) {
+                Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackId,
+                    'text' => 'Saving your session...',
+                    'show_alert' => false,
+                ]);
+            }
             $sessionFlow = $this->getSessionFlow($user);
             $data = $sessionFlow['data'] ?? null;
 
@@ -1953,6 +1956,13 @@ class TelegramWebhookController extends Controller
             $this->showMainMenu($chatId, $user);
         }
         elseif ($data === 'session_create_cancel') {
+            if (isset($callbackId)) {
+                Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
+                    'callback_query_id' => $callbackId,
+                    'text' => 'Session creation canceled',
+                    'show_alert' => false,
+                ]);
+            }
             $this->clearSessionFlow($user);
             $this->sendMessage($chatId, 'Session creation canceled.');
             $this->showMainMenu($chatId, $user);
@@ -1960,7 +1970,8 @@ class TelegramWebhookController extends Controller
         elseif (strpos($data, 'session_day_') === 0) {
             $sessionFlow = $this->getSessionFlow($user);
             if (!$sessionFlow) {
-                $this->sendMessage($chatId, 'Session creation data not found. Please start again.');
+                // Restart the flow gracefully instead of failing silently.
+                $this->startSessionCreation($chatId, $user);
                 return;
             }
 
@@ -2183,6 +2194,18 @@ class TelegramWebhookController extends Controller
                 $this->sendMessage($chatId, "Invitation declined.");
             }
         }
+        elseif (strpos($data, 'report_invite_') === 0) {
+            $invitationId = str_replace('report_invite_', '', $data);
+            $invitation = JoinedSession::find($invitationId);
+
+            if ($invitation) {
+                $targetId = (int) $invitation->user_id; // the person who sent the invite
+                $this->setReportPending($user, $targetId);
+                $this->sendReportReasonPrompt($chatId);
+            } else {
+                $this->sendMessage($chatId, 'This invitation is no longer available.');
+            }
+        }
 
         // ===== JOIN SESSION =====
         elseif (strpos($data, 'join_session_') === 0) {
@@ -2199,21 +2222,25 @@ class TelegramWebhookController extends Controller
                     return;
                 }
 
-                $alreadyJoined = JoinedSession::where('session_id', $sessionId)
-                    ->where('user_id', $user->id)
-                    ->exists();
+                try {
+                    $joined = JoinedSession::firstOrCreate(
+                        ['session_id' => $sessionId, 'user_id' => $user->id],
+                        ['status' => 'joined', 'joined_at' => now()]
+                    );
 
-                if ($alreadyJoined) {
+                    if (!$joined->wasRecentlyCreated) {
+                        Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
+                            'callback_query_id' => $callbackId,
+                            'text' => 'You already joined this session!',
+                            'show_alert' => true
+                        ]);
+                        return;
+                    }
+
                     Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
                         'callback_query_id' => $callbackId,
-                        'text' => 'You already joined this session!',
-                        'show_alert' => true
-                    ]);
-                } else {
-                    JoinedSession::create([
-                        'session_id' => $sessionId,
-                        'user_id' => $user->id,
-                        'status' => 'joined'
+                        'text' => 'Joined!',
+                        'show_alert' => false
                     ]);
 
                     $locationName = $session->location_name ?? 'Unknown';
@@ -2228,7 +2255,50 @@ class TelegramWebhookController extends Controller
                             "<b>{$user->name}</b> joined your session <b>{$locationName}</b>!"
                         );
                     }
+                } catch (\Throwable $e) {
+                    \Log::error('Telegram join session failed', [
+                        'session_id' => $sessionId,
+                        'user_id' => $user->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                    Http::withoutVerifying()->post("{$this->apiUrl}/answerCallbackQuery", [
+                        'callback_query_id' => $callbackId,
+                        'text' => 'Unable to join right now.',
+                        'show_alert' => true
+                    ]);
                 }
+            }
+        }
+        elseif (strpos($data, 'unjoin_session_') === 0) {
+            $sessionId = str_replace('unjoin_session_', '', $data);
+            $session = RunningSession::find($sessionId);
+
+            if (!$session) {
+                $this->sendMessage($chatId, 'Session not found.');
+                return;
+            }
+
+            if ($session->user_id === $user->id) {
+                $this->sendMessage($chatId, "You're the organizer of this session. You can't unjoin your own session.");
+                return;
+            }
+
+            $deleted = JoinedSession::where('session_id', $sessionId)
+                ->where('user_id', $user->id)
+                ->delete();
+
+            if ($deleted) {
+                $this->sendMessage($chatId, 'You have left the session.');
+
+                $organizer = User::find($session->user_id);
+                if ($organizer && $organizer->telegram_id) {
+                    $this->sendMessage(
+                        $organizer->telegram_id,
+                        "<b>{$user->name}</b> left your session at <b>" . ($session->location_name ?? 'Unknown') . "</b>."
+                    );
+                }
+            } else {
+                $this->sendMessage($chatId, 'You are not part of this session.');
             }
         }
 
@@ -2309,6 +2379,51 @@ class TelegramWebhookController extends Controller
                 );
             }
             $this->showNextBuddy($chatId, $user);
+        }
+        elseif ($data === 'buddy_stop') {
+            $this->clearBuddyQueue($user);
+            $this->sendMessage($chatId, 'Stopped browsing runners. Back to main menu.');
+            $this->showMainMenu($chatId, $user);
+        }
+        elseif (strpos($data, 'report_reason_') === 0) {
+            $reasonKey = str_replace('report_reason_', '', $data);
+            if ($reasonKey === 'cancel') {
+                $this->clearReportPending($user);
+                $this->sendMessage($chatId, 'Report canceled.');
+                $this->showMainMenu($chatId, $user);
+                return;
+            }
+
+            $pending = $this->getReportPending($user);
+            if (!$pending || empty($pending['target_id'])) {
+                $this->sendMessage($chatId, 'No report in progress.');
+                return;
+            }
+
+            $target = User::find($pending['target_id']);
+            if (!$target) {
+                $this->clearReportPending($user);
+                $this->sendMessage($chatId, 'The reported user is no longer available.');
+                $this->showMainMenu($chatId, $user);
+                return;
+            }
+
+            if ($reasonKey === 'other') {
+                $this->setReportPending($user, $target->id, 'custom_reason');
+                $this->sendMessage($chatId, 'Please type why you are reporting this user (or type cancel).');
+                return;
+            }
+
+            $reasonMap = [
+                'scammer' => 'Scammer',
+                'pervert' => 'Pervert',
+            ];
+            $reason = $reasonMap[$reasonKey] ?? ucfirst($reasonKey);
+
+            $this->notifyAdminsReport($user, $target, $reason);
+            $this->clearReportPending($user);
+            $this->sendMessage($chatId, 'Report submitted to admins.');
+            $this->showMainMenu($chatId, $user);
         }
         // ===== EDIT PROFILE =====
         elseif ($data === 'edit_gender') {
@@ -2469,16 +2584,26 @@ class TelegramWebhookController extends Controller
 
     private function sendReviewRatingOptions($chatId, int $sessionId): void
     {
-        $stars = [];
+        $row1 = [];
+        $row2 = [];
         for ($i = 1; $i <= 5; $i++) {
-            $stars[] = ['text' => str_repeat('★', $i), 'callback_data' => 'review_rate_' . $sessionId . '_' . $i];
+            $button = ['text' => str_repeat('⭐', $i), 'callback_data' => 'review_rate_' . $sessionId . '_' . $i];
+            if ($i <= 3) {
+                $row1[] = $button;
+            } else {
+                $row2[] = $button;
+            }
         }
+
+        $cancelRow = [
+            ['text' => 'Cancel', 'callback_data' => 'review_rate_cancel'],
+        ];
 
         Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
             'chat_id' => $chatId,
             'text' => 'Tap a star to rate:',
             'parse_mode' => 'HTML',
-            'reply_markup' => json_encode(['inline_keyboard' => [$stars]]),
+            'reply_markup' => json_encode(['inline_keyboard' => [$row1, $row2, $cancelRow]]),
         ]);
     }
 
@@ -2510,7 +2635,7 @@ class TelegramWebhookController extends Controller
         }
 
         $isOwner = $session->user_id === $user->id;
-        $joined = JoinedSession::where('running_session_id', $sessionId)
+        $joined = JoinedSession::where('session_id', $sessionId)
             ->where('user_id', $user->id)
             ->exists();
 
@@ -2537,6 +2662,36 @@ class TelegramWebhookController extends Controller
         ]);
 
         return true;
+    }
+
+    private function notifyAdminsReview(User $reviewer, int $sessionId, int $rating, string $comment): void
+    {
+        $admins = User::where('is_admin', true)
+            ->whereNotNull('telegram_id')
+            ->get();
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $session = RunningSession::find($sessionId);
+        $sessionInfo = $session ? ($session->location_name ?? 'Unknown location') : 'Unknown session';
+
+        $message = "<b>New Session Review</b>\n";
+        $message .= "Session ID: {$sessionId}\n";
+        $message .= "Location: {$sessionInfo}\n";
+        $message .= "Reviewer: {$reviewer->name} (ID {$reviewer->id})\n";
+        $message .= "Rating: {$rating}/5\n";
+        $message .= "Comment: {$comment}\n";
+        $message .= "Time: " . Carbon::now()->format('Y-m-d H:i');
+
+        foreach ($admins as $admin) {
+            Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
+                'chat_id' => $admin->telegram_id,
+                'text' => $message,
+                'parse_mode' => 'HTML',
+            ]);
+        }
     }
 
     private function removeReplyKeyboard($chatId): void
@@ -2583,10 +2738,9 @@ class TelegramWebhookController extends Controller
     private function getReportReasons(): array
     {
         return [
-            'Adult material',
-            'Sale of goods and services',
-            'No response',
-            'Others',
+            'Scammer',
+            'Pervert',
+            'Other',
         ];
     }
 
@@ -2728,10 +2882,11 @@ class TelegramWebhookController extends Controller
         return 'tg_report_pending_' . $user->id;
     }
 
-    private function setReportPending($user, int $targetId): void
+    private function setReportPending($user, int $targetId, string $step = 'select'): void
     {
         Cache::put($this->getReportPendingKey($user), [
             'target_id' => $targetId,
+            'step' => $step,
         ], now()->addMinutes(15));
     }
 
@@ -2747,26 +2902,26 @@ class TelegramWebhookController extends Controller
 
     private function sendReportReasonPrompt($chatId): void
     {
-        $message = "Specify the reason.\n\n"
-            . "Tap a reason below.";
+        $message = "Select a report reason:";
 
-        $keyboard = [
-            'keyboard' => [
-                [['text' => 'Adult material']],
-                [['text' => 'Sale of goods and services']],
-                [['text' => 'No response']],
-                [['text' => 'Others']],
-                [['text' => 'Cancel']],
+        $inlineKeyboard = [
+            'inline_keyboard' => [
+                [
+                    ['text' => 'Scammer', 'callback_data' => 'report_reason_scammer'],
+                    ['text' => 'Pervert', 'callback_data' => 'report_reason_pervert'],
+                    ['text' => 'Other', 'callback_data' => 'report_reason_other'],
+                ],
+                [
+                    ['text' => 'Cancel', 'callback_data' => 'report_reason_cancel'],
+                ]
             ],
-            'resize_keyboard' => true,
-            'one_time_keyboard' => true,
         ];
 
         Http::withoutVerifying()->post("{$this->apiUrl}/sendMessage", [
             'chat_id' => $chatId,
             'text' => $message,
             'parse_mode' => 'HTML',
-            'reply_markup' => json_encode($keyboard),
+            'reply_markup' => json_encode($inlineKeyboard),
         ]);
     }
 
@@ -2831,8 +2986,11 @@ class TelegramWebhookController extends Controller
 
         $index = $queue['index'] ?? 0;
         if ($index >= count($queue['items'])) {
-            $this->clearBuddyQueue($user);
-            $this->sendMessage($chatId, 'You reached the end of the list.');
+            // Loop back to the beginning so users can keep browsing, even after dislikes.
+            $queue['index'] = 0;
+            $this->setBuddyQueue($user, $queue);
+            $this->sendMessage($chatId, 'You reached the end of the list. Cycling back to the start.');
+            $this->showNextBuddy($chatId, $user);
             return;
         }
 
@@ -2861,6 +3019,7 @@ class TelegramWebhookController extends Controller
                 [
                     ['text' => 'Like', 'callback_data' => "buddy_like_{$buddy->id}"],
                     ['text' => 'Dislike', 'callback_data' => "buddy_dislike_{$buddy->id}"],
+                    ['text' => 'Stop', 'callback_data' => 'buddy_stop'],
                 ]
             ]
         ];
@@ -2923,12 +3082,6 @@ class TelegramWebhookController extends Controller
         return $response->json();
     }
 }
-
-
-
-
-
-
 
 
 

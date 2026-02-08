@@ -15,3 +15,5 @@ class VerifyCsrfToken extends Middleware
         '*', // Disable CSRF protection for all routes (TEMPORARY for debugging)
     ];
 }
+
+

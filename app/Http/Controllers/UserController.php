@@ -12,8 +12,10 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::where('is_admin', false)->latest()->paginate(15);
-        return view('admin.users.index', compact('users'));
+        $users = User::latest()->paginate(15);
+        $adminCount = User::where('is_admin', true)->count();
+        $totalUsers = User::count();
+        return view('admin.users.index', compact('users', 'adminCount', 'totalUsers'));
     }
 
     /**
@@ -114,3 +116,5 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('success', 'User deleted successfully.');
     }
 }
+
+

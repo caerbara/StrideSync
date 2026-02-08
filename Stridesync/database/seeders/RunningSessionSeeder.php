@@ -35,3 +35,4 @@ class RunningSessionSeeder extends Seeder
         }
     }
 }
+

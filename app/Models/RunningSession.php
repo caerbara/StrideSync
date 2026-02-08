@@ -58,3 +58,5 @@ class RunningSession extends Model
         return $this->hasMany(SessionReview::class, 'running_session_id', 'session_id');
     }
 }
+
+

@@ -35,3 +35,4 @@ class RunningSession extends Model
 
 
 }
+

@@ -18,3 +18,4 @@ php artisan view:cache
 php artisan storage:link || true
 
 echo "Post-deploy tasks completed!"
+

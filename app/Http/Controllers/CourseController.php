@@ -9,3 +9,5 @@ class CourseController extends Controller
         return view('course');
     }
 }
+
+

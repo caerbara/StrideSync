@@ -10,3 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('sessions:send-reminders')->everyMinute();
 Schedule::command('sessions:auto-update')->everyMinute();
+
+

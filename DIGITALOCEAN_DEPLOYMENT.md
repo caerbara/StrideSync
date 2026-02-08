@@ -247,3 +247,5 @@ php artisan view:clear
 | Node Version | 18+ (auto-detected) |
 | Web Server | Apache (via heroku-php-apache2) |
 | Region | Singapore (sgp) - change in app.yaml if needed |
+
+

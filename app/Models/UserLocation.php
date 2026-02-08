@@ -8,3 +8,5 @@ class UserLocation extends Model
 {
     protected $fillable = ['telegram_user_id', 'lat', 'lng'];
 }
+
+

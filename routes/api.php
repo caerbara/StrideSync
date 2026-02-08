@@ -26,3 +26,5 @@ Route::get('/telegram/set-webhook', [TelegramWebhookController::class, 'setWebho
 Route::get('/telegram/webhook-info', [TelegramWebhookController::class, 'getWebhookInfo'])
     ->name('api.telegram.webhook-info');
 ?>
+
+

@@ -234,7 +234,7 @@
    "To create a session:
     Visit our website:
     
-    🔗 stridesync.com/sessions/create
+    🔗 stridesync.app/sessions/create
     
     Or scan the QR code →
     [QR IMAGE]"
@@ -244,7 +244,7 @@
         │
         ↓
    Browser opens:
-   https://stridesync.com/sessions/create
+   https://stridesync.app/sessions/create
         │
         ↓
    User fills form:
@@ -512,3 +512,7 @@ Ready-to-Deploy Running Community Bot! 🏃‍♂️
 **Status: ✅ PRODUCTION READY**
 
 Next step: Set your `TELEGRAM_BOT_TOKEN` and deploy! 🚀
+
+
+
+

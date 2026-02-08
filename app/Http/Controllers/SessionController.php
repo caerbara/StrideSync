@@ -38,3 +38,5 @@ class SessionController extends Controller
         return redirect()->back()->with('success', 'You have left the session.');
     }
 }
+
+

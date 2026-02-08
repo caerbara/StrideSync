@@ -200,7 +200,7 @@ Join Session:
 Click "Create Session"
     ↓
 Display Guide Message:
-├─ Link: https://stridesync.com/sessions/create
+├─ Link: https://stridesync.app/sessions/create
 ├─ Option to click link
 └─ QR code (optional)
     ↓
@@ -470,3 +470,6 @@ Your bot creates a complete **social running network** where users can:
 - ✅ Create sessions on your website
 
 All features are location-aware (5km radius) and include real-time notifications!
+
+
+

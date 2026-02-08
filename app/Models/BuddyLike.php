@@ -15,3 +15,5 @@ class BuddyLike extends Model
         'status',
     ];
 }
+
+

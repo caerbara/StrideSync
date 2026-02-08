@@ -42,3 +42,5 @@ class AutoUpdateSessionStatus extends Command
         return Command::SUCCESS;
     }
 }
+
+

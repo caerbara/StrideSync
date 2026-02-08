@@ -11,7 +11,7 @@
         .event-link:hover { text-decoration: underline; }
     </style>
 </head>
-<body class="min-h-screen bg-[#b9bcc0] text-gray-900">
+<body class="min-h-screen bg-[#8b9095] text-gray-900">
     @php
         $states = [
             'Johor',
@@ -35,10 +35,10 @@
 
         <div class="max-w-6xl mx-auto px-6 py-10">
             <div class="flex justify-end mb-4">
-                <a href="{{ url('/') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-                    <span>Back to Home</span>
-                    <span aria-hidden="true">&rarr;</span>
-                </a>
+                <button type="button" onclick="handleCalendarClose()" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+                    <span>Close</span>
+                    <span aria-hidden="true">&times;</span>
+                </button>
             </div>
             <div class="flex flex-col gap-4">
                 <div class="max-w-2xl">
@@ -90,20 +90,17 @@
                                         $state = $parts ? end($parts) : '';
                                     }
                                 @endphp
-                                <li>
+                                <li data-title="{{ strtolower($event['title']) }}"
+                                    data-state="{{ strtolower($state) }}">
                                     @if($registerUrl)
                                         <a href="{{ $registerUrl }}" target="_blank" rel="noopener"
-                                           class="event-link text-sm font-normal block"
-                                           data-title="{{ strtolower($event['title']) }}"
-                                           data-state="{{ strtolower($state) }}">
+                                           class="event-link text-sm font-normal block">
                                             <span class="text-gray-700">{{ $event['date'] }}</span>
                                             <span class="text-gray-700"> - </span>
                                             <span class="text-gray-800">{{ $event['title'] }}</span>
                                         </a>
                                     @else
-                                        <span class="text-sm font-normal block"
-                                              data-title="{{ strtolower($event['title']) }}"
-                                              data-state="{{ strtolower($state) }}">
+                                        <span class="text-sm font-normal block">
                                             <span class="text-gray-700">{{ $event['date'] }}</span>
                                             <span class="text-gray-700"> - </span>
                                             <span class="text-gray-800">{{ $event['title'] }}</span>
@@ -128,10 +125,10 @@
             </a>
         </div>
         <div class="mt-6">
-            <a href="{{ url('/') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-                <span>Back to Home</span>
-                <span aria-hidden="true">&rarr;</span>
-            </a>
+            <button type="button" onclick="handleCalendarClose()" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+                <span>Close</span>
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
     </div>
 
@@ -144,20 +141,41 @@
             function applyFilters() {
                 var term = (searchInput.value || '').toLowerCase().trim();
                 var state = (stateFilter.value || '').toLowerCase().trim();
-                var cards = document.querySelectorAll('[data-title]');
+                var items = document.querySelectorAll('li[data-title]');
+                var sections = document.querySelectorAll('section');
 
-                cards.forEach(function(card) {
-                    var title = card.getAttribute('data-title') || '';
-                    var cardState = card.getAttribute('data-state') || '';
+                items.forEach(function(item) {
+                    var title = item.getAttribute('data-title') || '';
+                    var itemState = item.getAttribute('data-state') || '';
                     var matchesTerm = !term || title.includes(term);
-                    var matchesState = !state || cardState === state;
-                    card.closest('a').style.display = (matchesTerm && matchesState) ? '' : 'none';
+                    var matchesState = !state || itemState === state;
+                    item.style.display = (matchesTerm && matchesState) ? '' : 'none';
+                });
+
+                sections.forEach(function(section) {
+                    var anyVisible = false;
+                    var sectionItems = section.querySelectorAll('li[data-title]');
+                    sectionItems.forEach(function(item) {
+                        if (item.style.display !== 'none') {
+                            anyVisible = true;
+                        }
+                    });
+                    section.style.display = anyVisible ? '' : 'none';
                 });
             }
 
             searchInput.addEventListener('input', applyFilters);
             stateFilter.addEventListener('change', applyFilters);
         })();
+        function handleCalendarClose() {
+            if (window.parent && window.parent !== window && typeof window.parent.closeModal === 'function') {
+                window.parent.closeModal('eventCalendarModal');
+                return;
+            }
+            window.location.href = "{{ url('/') }}";
+        }
     </script>
 </body>
 </html>
+
+

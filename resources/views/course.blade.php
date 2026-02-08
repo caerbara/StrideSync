@@ -15,11 +15,11 @@
         }
         .card.active {
             border-color: #111827;
-            box-shadow: 10px 10px 0 rgba(0, 0, 0, 1);
+            box-shadow: none;
         }
     </style>
 </head>
-<body class="min-h-screen bg-[#b9bcc0] text-gray-900">
+<body class="min-h-screen bg-[#8b9095] text-gray-900">
     <div class="max-w-4xl mx-auto px-6 py-10">
         <p class="text-xs uppercase tracking-[0.35em] text-gray-500">The Fast Facts</p>
         <h1 class="mt-3 text-3xl md:text-4xl font-semibold">Running goals: choosing the right race distance</h1>
@@ -33,25 +33,25 @@
 
         <div class="mt-8">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900 shadow-[6px_6px_0_rgba(0,0,0,1)]" data-course="5k">
+                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900" data-course="5k">
                     <div class="text-xs uppercase tracking-[0.3em] text-gray-600">5K</div>
                     <h2 class="mt-2 text-lg font-semibold text-gray-900">Fast, focused start</h2>
                     <p class="mt-2 text-sm text-gray-700">Build speed and confidence with minimal training time.</p>
                 </button>
 
-                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900 shadow-[6px_6px_0_rgba(0,0,0,1)]" data-course="10k">
+                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900" data-course="10k">
                     <div class="text-xs uppercase tracking-[0.3em] text-gray-600">10K</div>
                     <h2 class="mt-2 text-lg font-semibold text-gray-900">Balanced middle ground</h2>
                     <p class="mt-2 text-sm text-gray-700">Speed + endurance with more varied training.</p>
                 </button>
 
-                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900 shadow-[6px_6px_0_rgba(0,0,0,1)]" data-course="half">
+                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900" data-course="half">
                     <div class="text-xs uppercase tracking-[0.3em] text-gray-600">Half Marathon</div>
                     <h2 class="mt-2 text-lg font-semibold text-gray-900">Big step up</h2>
                     <p class="mt-2 text-sm text-gray-700">Steady long runs and fueling practice.</p>
                 </button>
 
-                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900 shadow-[6px_6px_0_rgba(0,0,0,1)]" data-course="full">
+                <button type="button" class="card rounded-3xl bg-gray-200 text-left p-6 border-2 border-gray-900" data-course="full">
                     <div class="text-xs uppercase tracking-[0.3em] text-gray-600">Marathon</div>
                     <h2 class="mt-2 text-lg font-semibold text-gray-900">Long-game goal</h2>
                     <p class="mt-2 text-sm text-gray-700">Months of consistent mileage and patience.</p>
@@ -74,10 +74,10 @@
         </p>
 
         <div class="mt-8">
-            <a href="{{ url('/') }}" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-                <span>Back to Home</span>
-                <span aria-hidden="true">&rarr;</span>
-            </a>
+            <button type="button" onclick="handleCourseClose()" class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
+                <span>Close</span>
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
     </div>
     <script>
@@ -141,6 +141,15 @@
 
             setActive('5k');
         })();
+        function handleCourseClose() {
+            if (window.parent && window.parent !== window && typeof window.parent.closeModal === 'function') {
+                window.parent.closeModal('courseModal');
+                return;
+            }
+            window.location.href = "{{ url('/') }}";
+        }
     </script>
 </body>
 </html>
+
+

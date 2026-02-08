@@ -25,3 +25,5 @@ class UserReport extends Model
         return $this->belongsTo(User::class, 'target_id');
     }
 }
+
+

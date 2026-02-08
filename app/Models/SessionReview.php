@@ -14,6 +14,8 @@ class SessionReview extends Model
         'user_id',
         'rating',
         'comment',
+        'is_featured',
+        'featured_at',
     ];
 
     public function session()
@@ -26,3 +28,5 @@ class SessionReview extends Model
         return $this->belongsTo(User::class);
     }
 }
+
+
