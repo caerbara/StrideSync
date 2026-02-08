@@ -398,6 +398,91 @@
         70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
         100% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
     }
+
+    @media (max-width: 640px) {
+        .dashboard-container {
+            padding: 16px 14px 40px;
+        }
+
+        .dashboard-nav {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+        }
+
+        .nav-left {
+            justify-content: center;
+            font-size: 0.95rem;
+        }
+
+        .nav-center {
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .nav-right {
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .nav-right > * {
+            flex: 1 1 100%;
+        }
+
+        .profile-chip {
+            text-align: center;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 12px;
+        }
+
+        .stat-item {
+            justify-content: center;
+        }
+
+        .controls-row {
+            gap: 12px;
+        }
+
+        .tab-group {
+            flex-wrap: wrap;
+        }
+
+        .dashboard-action {
+            flex: 1 1 calc(50% - 6px);
+            text-align: center;
+        }
+
+        .filters-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .dashboard-filter {
+            width: 100%;
+        }
+
+        .session-card {
+            padding: 16px;
+        }
+
+        .session-meta {
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .session-actions > * {
+            flex: 1 1 100%;
+            text-align: center;
+        }
+
+        .motivation-line {
+            text-align: center;
+        }
+    }
 </style>
 
 <div class="dashboard-container">
