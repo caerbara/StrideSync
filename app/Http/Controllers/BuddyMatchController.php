@@ -180,6 +180,7 @@ class BuddyMatchController extends Controller
                 return $buddyState === $userState;
             })
             ->sortBy('distance_km')
+            ->take(3)
             ->values();
 
         return response()->json([

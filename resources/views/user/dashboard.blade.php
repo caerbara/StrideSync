@@ -402,27 +402,6 @@
         color: #dbe7f3;
     }
 
-    .filters-toggle {
-        display: none;
-        align-items: center;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        color: #f8fafc;
-        border-radius: 999px;
-        padding: 8px 14px;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-    }
-
-    .mobile-bottom-bar {
-        display: none;
-    }
-
-    .stats-more {
-        display: none;
-    }
-
     @keyframes pulseOnce {
         0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
         70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
@@ -459,12 +438,17 @@
             flex: 1 1 100%;
         }
 
-        .nav-right .btn-primary {
-            display: none;
+        .nav-right {
+            flex-direction: column;
+            align-items: stretch;
         }
 
-        .nav-right .btn-outline,
-        .nav-right #buddyMatchButton {
+        .nav-right .profile-chip { order: 1; }
+        .nav-right .btn-outline { order: 2; }
+        .nav-right .btn-link { order: 3; }
+        .nav-right #buddyMatchButton,
+        .nav-right .btn-primary,
+        .nav-right .nav-dropdown {
             display: none;
         }
 
@@ -482,65 +466,22 @@
             justify-content: center;
         }
 
-        .stats-row:not(.stats-expanded) .stat-item:not(.stat-key) {
-            display: none;
-        }
-
-        .stats-row:not(.stats-expanded) {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .stats-more {
-            display: block;
-            margin-top: 10px;
-            text-align: right;
-            font-size: 0.9rem;
-            color: #e2e8f0;
-        }
-
-        .stats-more button {
-            background: none;
-            border: none;
-            color: #93c5fd;
-            font-weight: 600;
-        }
-
         .controls-row {
             gap: 12px;
         }
 
         .tab-group {
             flex-wrap: wrap;
-            gap: 6px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 999px;
-            padding: 6px;
         }
 
         .dashboard-action {
-            flex: 1 1 50%;
+            flex: 1 1 calc(50% - 6px);
             text-align: center;
-            min-height: 44px;
-        }
-
-        .dashboard-action.active {
-            box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.35);
-        }
-
-        .filters-toggle {
-            display: inline-flex;
-            min-height: 44px;
         }
 
         .filters-row {
-            display: none;
             flex-direction: column;
             align-items: stretch;
-        }
-
-        .filters-row.filters-open {
-            display: flex;
         }
 
         .dashboard-filter {
@@ -567,44 +508,18 @@
             text-align: center;
         }
 
-        .mobile-bottom-bar {
+        .mobile-action-stack {
             display: flex;
             flex-direction: column;
-            position: sticky;
-            bottom: 12px;
-            z-index: 40;
             gap: 10px;
-            padding: 12px;
-            border-radius: 16px;
-            background: rgba(12, 16, 24, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: var(--shadow-soft);
             margin-top: 16px;
         }
 
-        .mobile-bottom-bar button {
-            min-height: 52px;
-            border-radius: 12px;
-            font-weight: 700;
-        }
-
-        .mobile-bottom-bar .bar-secondary-row {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
-        }
-
-        .mobile-bottom-bar .bar-primary {
-            background: #16a34a;
-            color: #ffffff;
-            min-height: 56px;
-            font-size: 1rem;
-        }
-
-        .mobile-bottom-bar .bar-secondary {
-            background: rgba(255, 255, 255, 0.12);
-            color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+        .mobile-action-stack .btn-primary,
+        .mobile-action-stack .btn-ghost {
+            width: 100%;
+            min-height: 48px;
+            text-align: center;
         }
     }
 </style>
@@ -666,7 +581,7 @@
     </nav>
 
     <h3 class="section-title">Stats</h3>
-    <div class="stats-row" id="statsRow">
+    <div class="stats-row">
         <div class="stat-item">
             <span class="stat-label">Sessions Created</span>
             <span class="stat-value">{{ $fastFacts['total_created'] ?? 0 }}</span>
@@ -675,15 +590,15 @@
             <span class="stat-label">Sessions Joined</span>
             <span class="stat-value">{{ $fastFacts['total_joined'] ?? 0 }}</span>
         </div>
-        <div class="stat-item stat-key">
+        <div class="stat-item">
             <span class="stat-label">Upcoming</span>
             <span class="stat-value">{{ $fastFacts['upcoming_count'] ?? 0 }}</span>
         </div>
-        <div class="stat-item stat-key">
+        <div class="stat-item">
             <span class="stat-label">Completed</span>
             <span class="stat-value">{{ $fastFacts['completed_count'] ?? 0 }}</span>
         </div>
-        <div class="stat-item stat-key">
+        <div class="stat-item">
             <span class="stat-label">Avg Pace</span>
             <span class="stat-value">{{ $fastFacts['average_pace'] ?? '-' }}</span>
         </div>
@@ -692,11 +607,14 @@
             <span class="stat-value">{{ number_format($fastFacts['total_distance_km'] ?? 0, 1) }} km</span>
         </div>
     </div>
-    <div class="stats-more">
-        <button type="button" onclick="toggleStats()">View stats →</button>
-    </div>
     <div class="motivation-line">
         Keep moving — your next run is waiting.
+    </div>
+
+    <div class="mobile-action-stack">
+        <button type="button" onclick="openModal('createSessionModal')" class="btn-primary">Create Session</button>
+        <button type="button" onclick="openBuddyMatch()" class="btn-ghost">Buddy Match</button>
+        <button type="button" onclick="toggleQuickMenu()" class="btn-ghost">More</button>
     </div>
 
     <div class="controls-row">
@@ -705,7 +623,6 @@
             <button id="tab-past" type="button" onclick="showPast()" class="dashboard-action">History</button>
             <button type="button" data-weekly-schedule-btn onclick="openModal('weeklyScheduleModal')" class="dashboard-action">My Schedule</button>
         </div>
-        <button type="button" class="filters-toggle" onclick="toggleFilters()">Filters</button>
         <div class="filters-row text-black">
             <select id="sortSelect" class="dashboard-filter">
                 <option value="all">Sort: All</option>
@@ -730,14 +647,6 @@
                     <option value="{{ $state }}">{{ $state }}</option>
                 @endforeach
             </select>
-        </div>
-    </div>
-
-    <div class="mobile-bottom-bar">
-        <button type="button" class="bar-primary" onclick="openModal('createSessionModal')">Create Session</button>
-        <div class="bar-secondary-row">
-            <button type="button" class="bar-secondary" onclick="showUpcoming()">Upcoming</button>
-            <button type="button" class="bar-secondary" onclick="openModal('profileModal')">Profile</button>
         </div>
     </div>
 
@@ -1966,9 +1875,6 @@
             if (buddy.distance_km != null && isFinite(parseFloat(buddy.distance_km))) {
                 locText = parseFloat(buddy.distance_km).toFixed(1) + ' km away';
             }
-            var mapButton = mapUrl
-                ? `<a href="${mapUrl}" target="_blank" rel="noopener" class="inline-block mt-2 px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition text-xs font-semibold">View on Map</a>`
-                : '';
             var photoHtml = buddy.photo_url
                 ? `<img src="${buddy.photo_url}" alt="${buddy.name}" class="h-12 w-12 rounded-full object-cover border border-gray-300">`
                 : `<div class="h-12 w-12 rounded-full bg-gray-200 text-gray-500 text-[10px] flex items-center justify-center">No photo</div>`;
@@ -1991,7 +1897,7 @@
                             <p>Pace: ${buddy.pace || 'Not set'}</p>
                             <p>Location: ${locText}</p>
                             <p>Profile: ${buddy.profile_complete ? 'Complete' : 'Incomplete'}</p>
-                            ${mapButton}
+                            
                         </div>
                     </div>
                 `;
@@ -2041,20 +1947,6 @@
             });
         }
         window.unlinkTelegram = unlinkTelegram;
-
-        function toggleFilters() {
-            var row = document.querySelector('.filters-row');
-            if (!row) return;
-            row.classList.toggle('filters-open');
-        }
-        window.toggleFilters = toggleFilters;
-
-        function toggleStats() {
-            var row = document.getElementById('statsRow');
-            if (!row) return;
-            row.classList.toggle('stats-expanded');
-        }
-        window.toggleStats = toggleStats;
 
         function openBuddyMatch() {
             loadBuddies();

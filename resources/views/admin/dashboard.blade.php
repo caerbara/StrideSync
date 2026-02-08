@@ -194,6 +194,75 @@
             gap: 16px;
         }
 
+        @media (max-width: 640px) {
+            .dashboard-container {
+                padding: 16px 14px 40px;
+            }
+
+            .dashboard-nav {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .nav-left {
+                justify-content: center;
+                font-size: 0.95rem;
+            }
+
+            .nav-center {
+                text-align: center;
+                font-size: 0.9rem;
+            }
+
+            .nav-right {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 8px;
+            }
+
+            .nav-right > * {
+                width: 100%;
+            }
+
+            .profile-chip {
+                text-align: center;
+            }
+
+            .admin-tools-button,
+            .btn-link {
+                width: 100%;
+                text-align: center;
+            }
+
+            .admin-tools-menu {
+                right: auto;
+                left: 0;
+                min-width: 100%;
+            }
+
+            .stats-row {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 10px 12px;
+            }
+
+            .stat-item {
+                justify-content: center;
+                text-align: center;
+                flex-direction: column;
+                gap: 4px;
+            }
+
+            .stat-label {
+                font-size: 0.7rem;
+            }
+
+            .stat-value {
+                font-size: 1.1rem;
+            }
+        }
+
         @media (min-width: 768px) {
             .session-grid {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
