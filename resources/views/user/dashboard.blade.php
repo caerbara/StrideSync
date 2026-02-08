@@ -521,6 +521,12 @@
             min-height: 48px;
             text-align: center;
         }
+
+        .mobile-action-stack .btn-ghost {
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+        }
     }
 </style>
 

@@ -13,6 +13,19 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+        .welcome-hero-bg {
+            background-image: url('{{ asset('images/bridge-bg.jpg') }}');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: #0b0f14;
+        }
+        @media (max-width: 640px) {
+            .welcome-hero-bg {
+                background-size: 100% auto;
+                background-position: top center;
+            }
+        }
         .funfact-panel {
             background: linear-gradient(135deg, #2c2c2c 0%, #1f1f1f 45%, #141414 100%);
             border: 1px solid rgba(255, 255, 255, 0.08);
@@ -46,7 +59,7 @@
 <body class="bg-black text-white min-h-screen flex flex-col relative overflow-x-hidden">
 
 <div class="relative h-screen w-full overflow-hidden">
-    <div class="absolute inset-0 bg-no-repeat bg-cover bg-center z-0" style="background-image: url('{{ asset('images/bridge-bg.jpg') }}');"></div>
+    <div class="absolute inset-0 welcome-hero-bg z-0"></div>
 
     <div class="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-b from-transparent to-black z-10"></div>
 
