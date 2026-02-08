@@ -899,7 +899,9 @@ class TelegramWebhookController extends Controller
             ->take(10);
 
         if ($sessions->isEmpty()) {
-            $this->sendMessage($chatId, "No running sessions found in {$userState} right now.");
+            $message = "No running sessions found in {$userState} right now.\n";
+            $message .= "Create a session so others can join you!";
+            $this->sendMessage($chatId, $message);
             $this->showMainMenu($chatId, $user);
             return;
         }
