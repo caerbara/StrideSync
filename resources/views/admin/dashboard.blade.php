@@ -261,6 +261,20 @@
             .stat-value {
                 font-size: 1.1rem;
             }
+
+            .admin-modal > div {
+                max-width: 94vw;
+                max-height: 85vh;
+            }
+
+            .admin-modal .modal-scroll {
+                max-height: 55vh;
+                overflow-y: auto;
+            }
+
+            .admin-modal .admin-iframe {
+                height: 55vh;
+            }
         }
 
         @media (min-width: 768px) {
@@ -513,7 +527,7 @@
             <iframe
                 src="{{ route('users.index', ['embed' => 1]) }}"
                 title="User Management"
-                class="w-full h-[60vh] border-0"
+                class="w-full h-[60vh] border-0 admin-iframe"
             ></iframe>
             <div class="px-6 py-4 bg-white border-t flex justify-end">
                 <button onclick="toggleModal('usersModal')" class="px-4 py-2 bg-slate-800 text-white rounded hover:bg-slate-900">Close</button>
@@ -674,7 +688,7 @@
                 </button>
             </div>
         </div>
-          <div class="overflow-x-auto">
+          <div class="overflow-x-auto modal-scroll">
               <table class="w-full text-sm text-slate-900">
                   <thead class="bg-slate-100 text-slate-700">
                       <tr class="text-left">
@@ -770,7 +784,7 @@
                 </button>
             </div>
         </div>
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto modal-scroll">
             <table class="w-full text-sm text-slate-900">
                 <thead class="bg-slate-100 text-slate-700">
                     <tr class="text-left">
