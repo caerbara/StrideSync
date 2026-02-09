@@ -402,6 +402,32 @@
         color: #dbe7f3;
     }
 
+    .mobile-quick-menu {
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 10px;
+        border-radius: 12px;
+        background: rgba(12, 16, 24, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mobile-quick-menu.open {
+        display: flex;
+    }
+
+    .mobile-quick-menu a,
+    .mobile-quick-menu button {
+        width: 100%;
+        text-align: left;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        font-size: 0.95rem;
+    }
+
     @keyframes pulseOnce {
         0% { box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.35); }
         70% { box-shadow: 0 0 0 8px rgba(22, 163, 74, 0); }
@@ -532,31 +558,6 @@
             color: #ffffff;
         }
 
-        .mobile-quick-menu {
-            display: none;
-            flex-direction: column;
-            gap: 8px;
-            margin-top: 8px;
-            padding: 10px;
-            border-radius: 12px;
-            background: rgba(12, 16, 24, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .mobile-quick-menu.open {
-            display: flex;
-        }
-
-        .mobile-quick-menu a,
-        .mobile-quick-menu button {
-            width: 100%;
-            text-align: left;
-            padding: 10px 12px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.08);
-            color: #ffffff;
-            font-size: 0.95rem;
-        }
     }
 </style>
 
@@ -1599,8 +1600,9 @@
                 quickMenuDropdown.style.display = isOpen ? 'none' : 'block';
             }
             if (mobileQuickMenu) {
-                mobileQuickMenu.classList.toggle('open');
-                if (mobileQuickMenu.classList.contains('open')) {
+                var open = mobileQuickMenu.classList.toggle('open');
+                mobileQuickMenu.style.display = open ? 'flex' : 'none';
+                if (open) {
                     mobileQuickMenu.scrollIntoView({ block: 'nearest' });
                 }
             }
