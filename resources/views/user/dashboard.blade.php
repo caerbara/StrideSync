@@ -456,6 +456,10 @@
             text-align: center;
         }
 
+        .nav-right .btn-link {
+            text-align: center;
+        }
+
         .stats-row {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1596,6 +1600,9 @@
             }
             if (mobileQuickMenu) {
                 mobileQuickMenu.classList.toggle('open');
+                if (mobileQuickMenu.classList.contains('open')) {
+                    mobileQuickMenu.scrollIntoView({ block: 'nearest' });
+                }
             }
         }
 
